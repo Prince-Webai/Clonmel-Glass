@@ -18,6 +18,15 @@ import {
   Layers
 } from 'lucide-react';
 
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount);
+};
+
 const InvoiceCalendar = () => {
   const { invoices, setView, setSelectedInvoiceId } = useApp();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -279,7 +288,7 @@ const InvoiceCalendar = () => {
                       <div className="flex items-center justify-between pt-4 border-t border-white/5">
                         <div className="flex items-center gap-2">
                           <Euro size={12} className="text-brand-500" />
-                          <span className="text-sm font-black text-white">€{inv.balanceDue.toFixed(2)}</span>
+                          <span className="text-sm font-black text-white">{formatCurrency(inv.balanceDue)}</span>
                         </div>
                         <button
                           onClick={() => setView('INVOICES')}
@@ -299,7 +308,7 @@ const InvoiceCalendar = () => {
                 <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
                   <span className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Due</span>
                   <span className="text-base font-black text-white">
-                    €{selectedInvoices.reduce((sum, i) => sum + i.balanceDue, 0).toFixed(2)}
+                    {formatCurrency(selectedInvoices.reduce((sum, i) => sum + i.balanceDue, 0))}
                   </span>
                 </div>
                 <div className="bg-brand-600 p-4 rounded-2xl shadow-xl shadow-brand-500/10">

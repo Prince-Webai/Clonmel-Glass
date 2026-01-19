@@ -7,7 +7,11 @@ export enum UserRole {
 export enum PaymentStatus {
   UNPAID = 'UNPAID',
   PARTIALLY_PAID = 'PARTIALLY_PAID',
-  PAID = 'PAID'
+  PAID = 'PAID',
+  PENDING = 'PENDING',
+  ACCEPTED = 'ACCEPTED',
+  REJECTED = 'REJECTED',
+  EXPIRED = 'EXPIRED'
 }
 
 export interface User {
@@ -46,6 +50,7 @@ export interface Invoice {
   customerPhone?: string;
   customerAddress?: string;
   company?: 'clonmel' | 'mirrorzone'; // Company selection
+  documentType?: 'invoice' | 'quote';
   items: InvoiceItem[];
   subtotal: number;
   taxRate: number;
@@ -59,6 +64,7 @@ export interface Invoice {
   notes?: string;
   createdBy: string;
   lastReminderSent?: string; // ISO Date of last reminder
+  validUntil?: string;
 }
 
 export interface Customer {
@@ -95,7 +101,7 @@ export interface Quote {
   total: number;
   validUntil: string;
   dateIssued: string;
-  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
+  status: PaymentStatus;
   notes?: string;
   createdBy: string;
   createdAt: string;

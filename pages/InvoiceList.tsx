@@ -2,11 +2,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { Invoice, PaymentStatus } from '../types';
-import { Search, CreditCard, Download, Eye, X, Check, Euro, BellRing, Clock, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
+import { Search, CreditCard, Download, Eye, X, Check, Euro, BellRing, Clock, CheckCircle2, AlertCircle, Trash2, Edit } from 'lucide-react';
 import { downloadInvoicePDF, generatePreviewUrl } from '../services/pdfService';
 
 const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-IE', {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'EUR',
     minimumFractionDigits: 2,
@@ -62,7 +62,7 @@ const ProgressBar = ({ paid, total }: { paid: number, total: number }) => {
 };
 
 const InvoiceList = () => {
-  const { invoices, updateInvoice, deleteInvoice, setView, companyLogo, selectedInvoiceId, setSelectedInvoiceId } = useApp();
+  const { invoices, updateInvoice, deleteInvoice, setView, companyLogo, selectedInvoiceId, setSelectedInvoiceId, setEditingInvoice } = useApp();
   const [filter, setFilter] = useState('');
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<string>('');
@@ -70,8 +70,10 @@ const InvoiceList = () => {
   const invoiceRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
 
   const filteredInvoices = invoices.filter(inv =>
-    inv.customerName.toLowerCase().includes(filter.toLowerCase()) ||
-    inv.invoiceNumber.toLowerCase().includes(filter.toLowerCase())
+    (inv.documentType === 'invoice' || !inv.documentType) &&
+    !inv.invoiceNumber.startsWith('QT-') &&
+    (inv.customerName.toLowerCase().includes(filter.toLowerCase()) ||
+      inv.invoiceNumber.toLowerCase().includes(filter.toLowerCase()))
   );
 
   const handlePayment = (inv: Invoice) => {
@@ -228,6 +230,9 @@ const InvoiceList = () => {
                         </button>
                         <button onClick={() => handleDownload(inv)} className="p-3 text-slate-600 bg-slate-100 hover:bg-slate-600 hover:text-white rounded-2xl transition-all shadow-sm" title="Download PDF">
                           <Download size={18} />
+                        </button>
+                        <button onClick={() => { setEditingInvoice(inv); setView('CREATE_INVOICE'); }} className="p-3 text-amber-600 bg-amber-50 hover:bg-amber-500 hover:text-white rounded-2xl transition-all shadow-sm" title="Edit Invoice">
+                          <Edit size={18} />
                         </button>
                         <button onClick={() => handleDelete(inv)} className="p-3 text-rose-600 bg-rose-50 hover:bg-rose-600 hover:text-white rounded-2xl transition-all shadow-sm" title="Delete Invoice">
                           <Trash2 size={18} />

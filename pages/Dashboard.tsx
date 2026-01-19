@@ -42,7 +42,7 @@ const safeRender = (val: any): string => {
 };
 
 const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-IE', {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'EUR',
     minimumFractionDigits: 2,

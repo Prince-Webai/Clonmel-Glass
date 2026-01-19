@@ -16,6 +16,7 @@ const Admin = () => {
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'PRODUCTS' | 'USERS'>(currentView === 'USERS' ? 'USERS' : 'PRODUCTS');
+  const [activeCompany, setActiveCompany] = useState<'clonmel' | 'mirrorzone'>('clonmel');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
@@ -301,15 +302,64 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
 
       {activeTab === 'PRODUCTS' && (
         <div className="space-y-10">
+
+          {/* Company Toggle */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button
+              onClick={() => {
+                setActiveCompany('clonmel');
+                setPCategory('Clear Glass');
+                setCategoryFilter('All');
+              }}
+              className={`p-6 rounded-2xl border-2 transition-all duration-300 ${activeCompany === 'clonmel'
+                ? 'bg-white border-white shadow-xl scale-[1.02]'
+                : 'bg-red-600/5 border-red-600/10 hover:bg-red-600/10'
+                }`}
+            >
+              <div className={`text-center ${activeCompany === 'clonmel' ? 'text-red-600' : 'text-slate-400'}`}>
+                <div className="text-xl font-black mb-1">CLONMEL GLASS</div>
+                <div className="text-[10px] font-bold opacity-70 uppercase tracking-widest">General Catalog</div>
+                {activeCompany === 'clonmel' && (
+                  <div className="mt-3 inline-flex items-center gap-2 bg-red-50 text-red-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">
+                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                    Active
+                  </div>
+                )}
+              </div>
+            </button>
+            <button
+              onClick={() => {
+                setActiveCompany('mirrorzone');
+                setPCategory('Mirrors');
+                setCategoryFilter('Mirrors');
+              }}
+              className={`p-6 rounded-2xl border-2 transition-all duration-300 ${activeCompany === 'mirrorzone'
+                ? 'bg-white border-white shadow-xl scale-[1.02]'
+                : 'bg-slate-900/5 border-slate-900/10 hover:bg-slate-900/10'
+                }`}
+            >
+              <div className={`text-center ${activeCompany === 'mirrorzone' ? 'text-slate-900' : 'text-slate-400'}`}>
+                <div className="text-xl font-black mb-1">MIRRORZONE</div>
+                <div className="text-[10px] font-bold opacity-70 uppercase tracking-widest">Mirrors Collection</div>
+                {activeCompany === 'mirrorzone' && (
+                  <div className="mt-3 inline-flex items-center gap-2 bg-slate-100 text-slate-900 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">
+                    <span className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></span>
+                    Active
+                  </div>
+                )}
+              </div>
+            </button>
+          </div>
+
           <div className="bg-white p-8 md:p-10 rounded-[2.5rem] border-2 border-slate-100 shadow-2xl animate-in slide-in-from-top-4 duration-500">
             <div className="flex items-center justify-between mb-8 border-b-2 border-slate-50 pb-6">
               <div className="flex items-center gap-4">
-                <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-lg ${editingProduct ? 'bg-amber-500 shadow-amber-500/20' : 'bg-brand-600 shadow-brand-500/20'}`}>
+                <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-lg ${editingProduct ? 'bg-amber-500 shadow-amber-500/20' : activeCompany === 'mirrorzone' ? 'bg-slate-900 shadow-slate-900/20' : 'bg-red-600 shadow-red-600/20'}`}>
                   {editingProduct ? <Edit2 size={24} /> : <Plus size={24} />}
                 </div>
                 <div>
                   <h3 className="font-black text-slate-800 uppercase tracking-widest leading-none">
-                    {editingProduct ? 'Edit Catalog Entry' : 'Add New Glass Piece'}
+                    {editingProduct ? 'Edit Catalog Entry' : `Add to ${activeCompany === 'mirrorzone' ? 'Mirrorzone' : 'Clonmel Glass'}`}
                   </h3>
                 </div>
               </div>
@@ -323,7 +373,7 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
             <form onSubmit={handleSaveProduct} className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
               <div className="md:col-span-1 space-y-2">
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Display Name</label>
-                <input type="text" placeholder="e.g. 10MM TOUGH SATIN" required value={pName} onChange={e => setPName(e.target.value)} className="w-full bg-white text-slate-900 border-2 border-slate-200 rounded-2xl px-6 py-4 text-sm font-black focus:border-brand-500 outline-none transition-all" />
+                <input type="text" placeholder={activeCompany === 'mirrorzone' ? "e.g. 6MM ANTIQUE MIRROR" : "e.g. 10MM TOUGH SATIN"} required value={pName} onChange={e => setPName(e.target.value)} className="w-full bg-white text-slate-900 border-2 border-slate-200 rounded-2xl px-6 py-4 text-sm font-black focus:border-brand-500 outline-none transition-all" />
               </div>
               <div className="space-y-2">
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Unit Price (€)</label>
@@ -331,14 +381,23 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
               </div>
               <div className="space-y-2">
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Classification</label>
-                <select value={pCategory} onChange={e => setPCategory(e.target.value)} className="w-full bg-white text-slate-900 border-2 border-slate-200 rounded-2xl px-6 py-4 text-sm font-black outline-none appearance-none cursor-pointer">
-                  {categories.filter(c => c !== 'All').map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
+                <select
+                  value={pCategory}
+                  onChange={e => setPCategory(e.target.value)}
+                  className="w-full bg-white text-slate-900 border-2 border-slate-200 rounded-2xl px-6 py-4 text-sm font-black outline-none appearance-none cursor-pointer"
+                  disabled={activeCompany === 'mirrorzone'}
+                >
+                  {activeCompany === 'mirrorzone' ? (
+                    <option value="Mirrors">Mirrors</option>
+                  ) : (
+                    categories.filter(c => c !== 'All' && c !== 'Mirrors').map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))
+                  )}
                 </select>
               </div>
               <div className="flex gap-3">
-                <button type="submit" disabled={isSyncing} className={`flex-1 flex items-center justify-center gap-3 font-black py-4 rounded-2xl transition-all disabled:opacity-50 shadow-2xl uppercase text-[10px] tracking-[0.2em] ${editingProduct ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/20' : 'bg-slate-900 hover:bg-brand-600 text-white shadow-slate-900/20'}`}>
+                <button type="submit" disabled={isSyncing} className={`flex-1 flex items-center justify-center gap-3 font-black py-4 rounded-2xl transition-all disabled:opacity-50 shadow-2xl uppercase text-[10px] tracking-[0.2em] ${editingProduct ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/20' : activeCompany === 'mirrorzone' ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-slate-900/20' : 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/20'}`}>
                   {isSyncing ? <RefreshCcw className="animate-spin" size={16} /> : editingProduct ? <Edit2 size={16} /> : <Plus size={16} />}
                   {editingProduct ? 'Apply Edit' : 'Add Product'}
                 </button>
@@ -350,110 +409,116 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
             <div className="bg-white p-5 rounded-3xl border-2 border-slate-100 flex gap-5 shadow-sm">
               <div className="relative flex-1">
                 <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input type="text" placeholder="Search glass catalog..." value={productSearch} onChange={e => setProductSearch(e.target.value)} className="w-full pl-14 pr-6 py-4 bg-white border-2 border-slate-200 text-slate-900 rounded-2xl text-sm font-bold focus:border-brand-500 outline-none transition-all" />
+                <input type="text" placeholder={`Search ${activeCompany === 'mirrorzone' ? 'mirrors' : 'glass'}...`} value={productSearch} onChange={e => setProductSearch(e.target.value)} className="w-full pl-14 pr-6 py-4 bg-white border-2 border-slate-200 text-slate-900 rounded-2xl text-sm font-bold focus:border-brand-500 outline-none transition-all" />
               </div>
-              <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="bg-white text-slate-900 border-2 border-slate-200 rounded-2xl px-6 py-4 text-[10px] font-black uppercase tracking-widest outline-none focus:border-brand-500">
-                {categories.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              {activeCompany !== 'mirrorzone' && (
+                <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="bg-white text-slate-900 border-2 border-slate-200 rounded-2xl px-6 py-4 text-[10px] font-black uppercase tracking-widest outline-none focus:border-brand-500">
+                  {categories.filter(c => c !== 'Mirrors').map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              )}
             </div>
 
-            <div className="bg-white rounded-[2rem] border-2 border-slate-100 overflow-hidden shadow-xl mb-12">
-              <div className="bg-slate-900 px-8 py-4 flex items-center justify-between">
-                <h3 className="text-white font-black uppercase tracking-widest text-sm flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-400"></div>
-                  Mirrorzone <span className="opacity-50">Collection</span>
-                </h3>
-                <span className="text-[10px] font-bold text-slate-400 bg-slate-800 px-3 py-1 rounded-full uppercase tracking-widest">
-                  Mirrors Only
-                </span>
+            {activeCompany === 'mirrorzone' && (
+              <div className="bg-white rounded-[2rem] border-2 border-slate-100 overflow-hidden shadow-xl mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-slate-900 px-8 py-4 flex items-center justify-between">
+                  <h3 className="text-white font-black uppercase tracking-widest text-sm flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                    Mirrorzone <span className="opacity-50">Collection</span>
+                  </h3>
+                  <span className="text-[10px] font-bold text-slate-400 bg-slate-800 px-3 py-1 rounded-full uppercase tracking-widest">
+                    Mirrors Only
+                  </span>
+                </div>
+                <table className="w-full">
+                  <thead className="bg-slate-50/80 border-b-2 border-slate-100">
+                    <tr className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                      <th className="text-left px-8 py-6">Product Line</th>
+                      <th className="text-left px-8 py-6">Pricing Index</th>
+                      <th className="text-right px-8 py-6">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredProducts.filter(p => p.category === 'Mirrors').length === 0 ? (
+                      <tr><td colSpan={3} className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">No mirrors found in catalog</td></tr>
+                    ) : (
+                      filteredProducts.filter(p => p.category === 'Mirrors').map(p => (
+                        <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
+                          <td className="px-8 py-6">
+                            <div className="font-black text-slate-900 group-hover:text-brand-600 transition-colors">{String(p.name)}</div>
+                            <div className="text-[9px] font-bold text-slate-400 mt-1 uppercase">{String(p.category)}</div>
+                          </td>
+                          <td className="px-8 py-6">
+                            <span className="text-sm font-black text-slate-800">€{Number(p.price).toFixed(2)}</span>
+                            <span className="text-[10px] font-bold text-slate-400 ml-1.5 uppercase">/ {String(p.unit)}</span>
+                          </td>
+                          <td className="px-8 py-6 text-right flex items-center justify-end gap-3">
+                            <button onClick={() => {
+                              setEditingProduct(p);
+                              setPName(p.name);
+                              setPPrice(p.price.toString());
+                              setPUnit(p.unit);
+                              setPCategory(p.category);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }} className="p-3 text-slate-300 hover:text-amber-600 hover:bg-amber-50 rounded-2xl transition-all"><Edit2 size={18} /></button>
+                            <button onClick={() => handleDeleteProduct(p.id)} className="p-3 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all"><Trash2 size={18} /></button>
+                          </td>
+                        </tr>
+                      )))}
+                  </tbody>
+                </table>
               </div>
-              <table className="w-full">
-                <thead className="bg-slate-50/80 border-b-2 border-slate-100">
-                  <tr className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
-                    <th className="text-left px-8 py-6">Product Line</th>
-                    <th className="text-left px-8 py-6">Pricing Index</th>
-                    <th className="text-right px-8 py-6">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredProducts.filter(p => p.category === 'Mirrors').length === 0 ? (
-                    <tr><td colSpan={3} className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">No mirrors found in catalog</td></tr>
-                  ) : (
-                    filteredProducts.filter(p => p.category === 'Mirrors').map(p => (
-                      <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
-                        <td className="px-8 py-6">
-                          <div className="font-black text-slate-900 group-hover:text-brand-600 transition-colors">{String(p.name)}</div>
-                          <div className="text-[9px] font-bold text-slate-400 mt-1 uppercase">{String(p.category)}</div>
-                        </td>
-                        <td className="px-8 py-6">
-                          <span className="text-sm font-black text-slate-800">€{Number(p.price).toFixed(2)}</span>
-                          <span className="text-[10px] font-bold text-slate-400 ml-1.5 uppercase">/ {String(p.unit)}</span>
-                        </td>
-                        <td className="px-8 py-6 text-right flex items-center justify-end gap-3">
-                          <button onClick={() => {
-                            setEditingProduct(p);
-                            setPName(p.name);
-                            setPPrice(p.price.toString());
-                            setPUnit(p.unit);
-                            setPCategory(p.category);
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                          }} className="p-3 text-slate-300 hover:text-amber-600 hover:bg-amber-50 rounded-2xl transition-all"><Edit2 size={18} /></button>
-                          <button onClick={() => handleDeleteProduct(p.id)} className="p-3 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all"><Trash2 size={18} /></button>
-                        </td>
-                      </tr>
-                    )))}
-                </tbody>
-              </table>
-            </div>
+            )}
 
-            <div className="bg-white rounded-[2rem] border-2 border-slate-100 overflow-hidden shadow-xl">
-              <div className="bg-red-600 px-8 py-4 flex items-center justify-between">
-                <h3 className="text-white font-black uppercase tracking-widest text-sm flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
-                  Clonmel Glass <span className="opacity-70">Collection</span>
-                </h3>
-                <span className="text-[10px] font-bold text-white/80 bg-red-700 px-3 py-1 rounded-full uppercase tracking-widest">
-                  General Catalog
-                </span>
+            {activeCompany === 'clonmel' && (
+              <div className="bg-white rounded-[2rem] border-2 border-slate-100 overflow-hidden shadow-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-red-600 px-8 py-4 flex items-center justify-between">
+                  <h3 className="text-white font-black uppercase tracking-widest text-sm flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
+                    Clonmel Glass <span className="opacity-70">Collection</span>
+                  </h3>
+                  <span className="text-[10px] font-bold text-white/80 bg-red-700 px-3 py-1 rounded-full uppercase tracking-widest">
+                    General Catalog
+                  </span>
+                </div>
+                <table className="w-full">
+                  <thead className="bg-slate-50/80 border-b-2 border-slate-100">
+                    <tr className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                      <th className="text-left px-8 py-6">Product Line</th>
+                      <th className="text-left px-8 py-6">Pricing Index</th>
+                      <th className="text-right px-8 py-6">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredProducts.filter(p => p.category !== 'Mirrors').length === 0 ? (
+                      <tr><td colSpan={3} className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">No other products found</td></tr>
+                    ) : (
+                      filteredProducts.filter(p => p.category !== 'Mirrors').map(p => (
+                        <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
+                          <td className="px-8 py-6">
+                            <div className="font-black text-slate-900 group-hover:text-brand-600 transition-colors">{String(p.name)}</div>
+                            <div className="text-[9px] font-bold text-slate-400 mt-1 uppercase">{String(p.category)}</div>
+                          </td>
+                          <td className="px-8 py-6">
+                            <span className="text-sm font-black text-slate-800">€{Number(p.price).toFixed(2)}</span>
+                            <span className="text-[10px] font-bold text-slate-400 ml-1.5 uppercase">/ {String(p.unit)}</span>
+                          </td>
+                          <td className="px-8 py-6 text-right flex items-center justify-end gap-3">
+                            <button onClick={() => {
+                              setEditingProduct(p);
+                              setPName(p.name);
+                              setPPrice(p.price.toString());
+                              setPUnit(p.unit);
+                              setPCategory(p.category);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }} className="p-3 text-slate-300 hover:text-amber-600 hover:bg-amber-50 rounded-2xl transition-all"><Edit2 size={18} /></button>
+                            <button onClick={() => handleDeleteProduct(p.id)} className="p-3 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all"><Trash2 size={18} /></button>
+                          </td>
+                        </tr>
+                      )))}
+                  </tbody>
+                </table>
               </div>
-              <table className="w-full">
-                <thead className="bg-slate-50/80 border-b-2 border-slate-100">
-                  <tr className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
-                    <th className="text-left px-8 py-6">Product Line</th>
-                    <th className="text-left px-8 py-6">Pricing Index</th>
-                    <th className="text-right px-8 py-6">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredProducts.filter(p => p.category !== 'Mirrors').length === 0 ? (
-                    <tr><td colSpan={3} className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">No other products found</td></tr>
-                  ) : (
-                    filteredProducts.filter(p => p.category !== 'Mirrors').map(p => (
-                      <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
-                        <td className="px-8 py-6">
-                          <div className="font-black text-slate-900 group-hover:text-brand-600 transition-colors">{String(p.name)}</div>
-                          <div className="text-[9px] font-bold text-slate-400 mt-1 uppercase">{String(p.category)}</div>
-                        </td>
-                        <td className="px-8 py-6">
-                          <span className="text-sm font-black text-slate-800">€{Number(p.price).toFixed(2)}</span>
-                          <span className="text-[10px] font-bold text-slate-400 ml-1.5 uppercase">/ {String(p.unit)}</span>
-                        </td>
-                        <td className="px-8 py-6 text-right flex items-center justify-end gap-3">
-                          <button onClick={() => {
-                            setEditingProduct(p);
-                            setPName(p.name);
-                            setPPrice(p.price.toString());
-                            setPUnit(p.unit);
-                            setPCategory(p.category);
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                          }} className="p-3 text-slate-300 hover:text-amber-600 hover:bg-amber-50 rounded-2xl transition-all"><Edit2 size={18} /></button>
-                          <button onClick={() => handleDeleteProduct(p.id)} className="p-3 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all"><Trash2 size={18} /></button>
-                        </td>
-                      </tr>
-                    )))}
-                </tbody>
-              </table>
-            </div>
+            )}
           </div>
         </div>
       )}

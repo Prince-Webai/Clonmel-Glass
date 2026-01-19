@@ -282,7 +282,7 @@ const CustomerCRM = () => {
             </div>
 
             {/* Customer List (Table View) */}
-            <div className="bg-white rounded-2xl border-2 border-slate-200 overflow-hidden shadow-sm">
+            <div className="bg-white rounded-2xl border-2 border-slate-200 overflow-hidden shadow-sm overflow-x-auto">
                 <table className="w-full">
                     <thead>
                         <tr className="bg-slate-50 border-b-2 border-slate-100">

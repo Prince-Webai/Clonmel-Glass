@@ -62,7 +62,7 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
           <p className="text-xs text-slate-400">Quotes & Invoices</p>
 
           <div className="absolute top-4 right-4 flex items-center space-x-1" title={databaseError ? "Using Local Mock Data" : "Connected to Cloud DB"}>
-            <div className={`h-2 w-2 rounded-full ${isSyncing ? 'bg-blue-400 animate-pulse' : databaseError ? 'bg-amber-400' : 'bg-emerald-400'}`}></div>
+            <div className={`h-2 w-2 rounded-full ${isSyncing ? 'bg-purple-500 animate-pulse' : databaseError ? 'bg-amber-400' : 'bg-emerald-400'}`}></div>
             <span className={`text-[8px] font-bold uppercase tracking-tighter ${databaseError ? 'text-amber-500' : 'text-slate-400'}`}>
               {isSyncing ? 'SYNC' : databaseError ? 'MOCK' : 'LIVE'}
             </span>
@@ -114,15 +114,15 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
             <div className="h-8 w-8 bg-brand-500 rounded flex items-center justify-center text-white font-bold text-sm">CG</div>
             <span className="font-bold text-slate-800 text-sm">Clonmel Glass</span>
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-1 bg-slate-100 px-2 py-1 rounded-full">
-              <div className={`h-1.5 w-1.5 rounded-full ${isSyncing ? 'bg-blue-400 animate-pulse' : databaseError ? 'bg-amber-400' : 'bg-emerald-400'}`}></div>
+          <div className="flex items-center gap-2 sm:gap-4">
+            <div className="hidden sm:flex items-center space-x-1 bg-slate-100 px-2 py-1 rounded-full">
+              <div className={`h-1.5 w-1.5 rounded-full ${isSyncing ? 'bg-purple-500 animate-pulse' : databaseError ? 'bg-amber-400' : 'bg-emerald-400'}`}></div>
               <span className={`text-[8px] font-bold ${databaseError ? 'text-amber-600' : 'text-slate-500'}`}>
                 {isSyncing ? 'SYNC' : databaseError ? 'MOCK DATA' : 'LIVE DB'}
               </span>
             </div>
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-slate-600">
-              <Menu size={20} />
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-slate-600 p-2 hover:bg-slate-100 rounded-lg transition-colors">
+              <Menu size={24} />
             </button>
           </div>
         </header>

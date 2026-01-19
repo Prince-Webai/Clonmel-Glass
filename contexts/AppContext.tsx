@@ -129,6 +129,8 @@ interface AppContextType {
   isLoading: boolean;
   databaseError: boolean;
   refreshDatabase: () => Promise<void>;
+  editingInvoice: Invoice | null;
+  setEditingInvoice: (invoice: Invoice | null) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -140,6 +142,7 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [databaseError, setDatabaseError] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
 
   const [users, setUsers] = useState<User[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -365,7 +368,8 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
       selectedInvoiceId, setSelectedInvoiceId,
       companyLogo, setCompanyLogo: updateLogo,
       isSyncing, isLoading, databaseError,
-      refreshDatabase: initDb
+      refreshDatabase: initDb,
+      editingInvoice, setEditingInvoice
     }}>
       {children}
     </AppContext.Provider>

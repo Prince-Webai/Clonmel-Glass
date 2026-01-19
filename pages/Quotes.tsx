@@ -1,20 +1,21 @@
 import React, { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { Quote } from '../types';
-import { FileText, Plus, Search, Eye, Trash2, CheckCircle, XCircle, Clock, Calendar } from 'lucide-react';
+import { Quote, PaymentStatus } from '../types';
+import { FileText, Plus, Search, Eye, Trash2, CheckCircle, XCircle, Clock, Calendar, Edit, FileOutput } from 'lucide-react';
+import { generatePreviewUrl } from '../services/pdfService';
 
 const Quotes = () => {
-    const { user } = useApp();
-    const [quotes, setQuotes] = useState<Quote[]>([]);
+    const { user, invoices, setView, setEditingInvoice } = useApp();
     const [searchTerm, setSearchTerm] = useState('');
 
-    const filteredQuotes = quotes.filter(quote =>
-        quote.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        quote.quoteNumber.toLowerCase().includes(searchTerm.toLowerCase())
+    const filteredQuotes = invoices.filter(inv =>
+        (inv.documentType === 'quote' || inv.invoiceNumber.startsWith('QT-')) &&
+        (inv.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-IE', {
+        return new Intl.NumberFormat('en-US', {
             style: 'currency',
             currency: 'EUR',
             minimumFractionDigits: 2,
@@ -29,7 +30,18 @@ const Quotes = () => {
                 icon: <Clock size={10} />,
                 label: 'PENDING'
             },
+            // Fallback for quotes created with Invoice status
+            [PaymentStatus.UNPAID]: {
+                style: 'bg-amber-50 text-amber-700 border-amber-200',
+                icon: <Clock size={10} />,
+                label: 'PENDING'
+            },
             ACCEPTED: {
+                style: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+                icon: <CheckCircle size={10} />,
+                label: 'ACCEPTED'
+            },
+            [PaymentStatus.PAID]: {
                 style: 'bg-emerald-50 text-emerald-700 border-emerald-100',
                 icon: <CheckCircle size={10} />,
                 label: 'ACCEPTED'
@@ -46,7 +58,7 @@ const Quotes = () => {
             }
         };
 
-        const { style, icon, label } = config[status];
+        const { style, icon, label } = config[status] || config['PENDING'];
         return (
             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black border transition-all shadow-sm ${style} tracking-widest`}>
                 {icon}
@@ -110,7 +122,7 @@ const Quotes = () => {
                             filteredQuotes.map(quote => (
                                 <tr key={quote.id} className="hover:bg-slate-50/50 transition-colors group">
                                     <td className="py-6 px-10">
-                                        <div className="text-lg font-black text-slate-900 tracking-tight">{quote.quoteNumber}</div>
+                                        <div className="text-lg font-black text-slate-900 tracking-tight">{quote.invoiceNumber}</div>
                                         <div className="text-[10px] font-bold text-slate-400 mt-0.5">
                                             Issued: {new Date(quote.dateIssued).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                         </div>
@@ -129,17 +141,42 @@ const Quotes = () => {
                                     </td>
                                     <td className="py-6 px-10 text-center">
                                         <div className="text-xs font-bold text-slate-600">
-                                            {new Date(quote.validUntil).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                            {quote.validUntil
+                                                ? new Date(quote.validUntil).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                                : '-'}
                                         </div>
                                     </td>
                                     <td className="py-6 px-10 text-center">
                                         {getStatusBadge(quote.status)}
                                     </td>
                                     <td className="py-6 px-10">
-                                        <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="flex items-center justify-center gap-2 transition-opacity">
                                             <button
+                                                onClick={() => {
+                                                    // Convert logic: load quote but set as invoice
+                                                    const quoteAsInvoice = { ...quote, documentType: 'invoice' as const };
+                                                    setEditingInvoice(quoteAsInvoice);
+                                                    setView('CREATE_INVOICE');
+                                                }}
+                                                className="p-3 text-purple-600 bg-purple-50 hover:bg-purple-500 hover:text-white rounded-2xl transition-all shadow-sm"
+                                                title="Convert to Invoice"
+                                            >
+                                                <FileOutput size={18} />
+                                            </button>
+                                            <button
+                                                onClick={() => { setEditingInvoice(quote); setView('CREATE_INVOICE'); }}
+                                                className="p-3 text-amber-500 bg-amber-50 hover:bg-amber-500 hover:text-white rounded-2xl transition-all shadow-sm"
+                                                title="Edit Quote"
+                                            >
+                                                <Edit size={18} />
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    const url = await generatePreviewUrl(quote);
+                                                    window.open(url, '_blank');
+                                                }}
                                                 className="p-3 text-brand-500 bg-brand-50 hover:bg-brand-500 hover:text-white rounded-2xl transition-all shadow-sm"
-                                                title="View Quote"
+                                                title="View Quote PDF"
                                             >
                                                 <Eye size={18} />
                                             </button>

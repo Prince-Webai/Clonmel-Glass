@@ -70,7 +70,9 @@ export const storageService = {
       dateIssued: String(inv.date_issued || ''),
       dueDate: String(inv.due_date || ''),
       createdBy: String(inv.created_by || ''),
-      lastReminderSent: inv.last_reminder_sent ? String(inv.last_reminder_sent) : undefined
+      lastReminderSent: inv.last_reminder_sent ? String(inv.last_reminder_sent) : undefined,
+      documentType: inv.document_type ? String(inv.document_type) : undefined,
+      validUntil: inv.valid_until ? String(inv.valid_until) : undefined
     }));
   },
 
@@ -96,7 +98,9 @@ export const storageService = {
       due_date: String(invoice.dueDate),
       notes: String(invoice.notes || ''),
       created_by: String(invoice.createdBy),
-      last_reminder_sent: invoice.lastReminderSent ? String(invoice.lastReminderSent) : null
+      last_reminder_sent: invoice.lastReminderSent ? String(invoice.lastReminderSent) : null,
+      document_type: invoice.documentType ? String(invoice.documentType) : 'invoice',
+      valid_until: invoice.validUntil ? String(invoice.validUntil) : null
     };
     const { error } = await supabase.from('invoices').insert([dbInvoice]);
     if (error) throw error;

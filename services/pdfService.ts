@@ -2,6 +2,14 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Invoice, PaymentStatus } from "../types";
 
+// Helper to format currency with comma separators
+const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount);
+};
+
 // Helper to convert image URL to base64
 const getImageBase64 = async (url: string): Promise<string> => {
   try {
@@ -29,172 +37,221 @@ const createInvoiceDoc = async (invoice: Invoice, logoUrl?: string): Promise<jsP
 
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
-  const leftMargin = 20;
-  const rightMargin = 20;
+  const margin = 15;
+  const contentWidth = pageWidth - (margin * 2);
 
-  let yPos = 25;
+  // --- BRANDING CONFIG ---
+  const isMirrorzone = invoice.company === 'mirrorzone';
+  const brandColor: [number, number, number] = isMirrorzone ? [15, 23, 42] : [220, 38, 38];
+  const textColor = [0, 0, 0];
 
-  // --- HEADER BACKGROUND (Mirrorzone Only) ---
-  if (invoice.company === 'mirrorzone') {
-    doc.setFillColor(15, 23, 42); // Slate-900 (Dark)
-    doc.rect(0, 0, pageWidth, 52, 'F');
-  }
+  // Helper for lines
+  const drawHorizLine = (y: number, thickness: number = 0.1) => {
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(thickness);
+    doc.line(margin, y, pageWidth - margin, y);
+  };
 
-  // --- LOGO SECTION ---
-  // Determine which logo to use based on company
-  const logoPath = invoice.company === 'mirrorzone'
-    ? '/mirrorzone-logo.png'
-    : '/clonmel-logo.png';
+  let yPos = 0;
 
+  // 1. DIAGONAL BANNER (Top Left) - Thin ribbon strip
+  const isPaid = invoice.status === PaymentStatus.PAID;
+  const statusText = isPaid ? "PAID" : "UNPAID";
+  const bannerColor = isPaid ? [34, 197, 94] : [249, 115, 22];
+
+  // Draw thin diagonal ribbon using rotated rectangle
+  doc.setFillColor(bannerColor[0], bannerColor[1], bannerColor[2]);
+
+  // Create a thin ribbon: width=70mm, height=12mm, rotated -45deg
+  const ribbonLength = 70;
+  const ribbonThickness = 12;
+  const angle = -45 * (Math.PI / 180);
+
+  // Starting position (offset from corner)
+  const startX = -10;
+  const startY = 25;
+
+  // Calculate the 4 corners of the ribbon rectangle
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+
+  const p1 = { x: startX, y: startY };
+  const p2 = { x: startX + ribbonLength * cos, y: startY + ribbonLength * sin };
+  const p3 = { x: p2.x - ribbonThickness * sin, y: p2.y + ribbonThickness * cos };
+  const p4 = { x: p1.x - ribbonThickness * sin, y: p1.y + ribbonThickness * cos };
+
+  // Draw the ribbon polygon
+  doc.moveTo(p1.x, p1.y);
+  doc.lineTo(p2.x, p2.y);
+  doc.lineTo(p3.x, p3.y);
+  doc.lineTo(p4.x, p4.y);
+  doc.close();
+  doc.fill();
+
+  // Add text on ribbon using transform
+  doc.saveGraphicsState();
+
+  // Move to center of ribbon and rotate
+  const textX = 11; // Moved left from 14
+  const textY = 20;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(255, 255, 255); // White color
+
+  // Translate to position, rotate, then draw text
+  const rotateAngle = 45;
+
+  doc.text(statusText, textX, textY, {
+    angle: rotateAngle,
+    align: 'center',
+    baseline: 'middle'
+  });
+
+  doc.restoreGraphicsState();
+
+  // 2. HEADER: Title Left, Logo Right
+  yPos = 25; // Moved up from 35
+  const docTitle = invoice.documentType === 'quote' ? 'Quote' : 'Invoice';
+
+  // Title
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(20);
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  doc.text(docTitle, margin, yPos);
+
+  // Number
+  doc.setFontSize(12);
+  doc.text(invoice.invoiceNumber, margin, yPos + 7);
+
+  // Logo (Top Right)
+  const logoPath = isMirrorzone ? '/mirrorzone-logo.png' : '/clonmel-logo.png';
   try {
     const logoBase64 = await getImageBase64(logoPath);
     if (logoBase64) {
-      // Add logo in the top right corner
-      const logoWidth = invoice.company === 'mirrorzone' ? 40 : 50;
-      const logoHeight = invoice.company === 'mirrorzone' ? 40 : 15;
-      const logoX = pageWidth - rightMargin - logoWidth;
-      const logoY = 10;
+      const maxHeight = 15;
 
-      doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
+      let logoW = isMirrorzone ? 25 : 45;
+      let logoH = isMirrorzone ? 25 : 15;
+
+      if (logoH > maxHeight) {
+        const ratio = maxHeight / logoH;
+        logoH = maxHeight;
+        logoW = logoW * ratio;
+      }
+
+      const logoX = pageWidth - margin - logoW;
+      doc.addImage(logoBase64, 'PNG', logoX, yPos - 10, logoW, logoH);
     }
   } catch (error) {
-    console.error('Error adding logo to PDF:', error);
+    console.error('Error adding logo:', error);
   }
 
-  // --- PAID/UNPAID BANNER (Top-left corner) ---
-  const isPaid = invoice.status === PaymentStatus.PAID || invoice.balanceDue === 0;
-  const bannerText = isPaid ? "PAID" : "UNPAID";
-  const bannerColor = isPaid ? [34, 197, 94] : [255, 140, 0]; // Green or Orange
+  yPos += 20;
+  drawHorizLine(yPos);
 
-  // Draw triangle
-  doc.setFillColor(bannerColor[0], bannerColor[1], bannerColor[2]);
-  doc.triangle(0, 0, 60, 0, 0, 60, 'F');
+  // 3. ADDRESS SECTION (3 Columns)
+  yPos += 8;
+  const colWidth = contentWidth / 3;
 
-  // Add text inside triangle - positioned to be clearly visible
+  doc.setFontSize(8);
+
+  // Col 1: Quote/Invoice To
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(255, 255, 255); // White text
+  doc.text(`${docTitle} To:`, margin, yPos);
 
-  // Rotate text for diagonal banner
-  const angle = -45;
-  const bannerX = 15;
-  const bannerY = 28;
-  doc.text(bannerText, bannerX, bannerY, { angle });
-
-  // --- HEADER SECTION ---
-  // Left: "Invoice" title and number
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(28);
+  const billLines = [
+    invoice.customerName,
+    ...(invoice.customerAddress ? doc.splitTextToSize(invoice.customerAddress, colWidth - 5) : [])
+  ].filter(Boolean);
 
-  // Set text color: White for Mirrorzone (dark bg), Dark Grey for others
-  if (invoice.company === 'mirrorzone') {
-    doc.setTextColor(255, 255, 255);
-  } else {
-    doc.setTextColor(80, 80, 80);
-  }
+  let billY = yPos + 5;
+  billLines.forEach(l => { doc.text(l, margin, billY); billY += 4; });
 
-  doc.text("Invoice", leftMargin, yPos);
-
+  // Col 2: Deliver To
+  const col2X = margin + colWidth;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
+  doc.text("Deliver To:", col2X, yPos);
 
-  // Keep same conditional color or just reset to black/white
-  if (invoice.company === 'mirrorzone') {
-    doc.setTextColor(255, 255, 255);
-  } else {
-    doc.setTextColor(0, 0, 0);
-  }
-
-  doc.text(invoice.invoiceNumber, leftMargin, yPos + 10);
-
-  // Logo is already added above, no need for text company name
-  yPos += 40; // Adjusted to account for logo space and header bg
-
-
-  // --- ADDRESS SECTION (3 columns) ---
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.setTextColor(0, 0, 0);
-
-  // Column 1: Invoice To
-  doc.text("Invoice To:", leftMargin, yPos);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.text(invoice.customerName || "Cash Sale", leftMargin, yPos + 5);
+  let shipY = yPos + 5;
+  billLines.forEach(l => { doc.text(l, col2X, shipY); shipY += 4; });
 
-  // Column 2: Deliver To
+  // Col 3: Company Details
+  const col3X = margin + (colWidth * 2);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.text("Deliver To:", leftMargin + 60, yPos);
+  const companyName = isMirrorzone ? "MirrorZone" : "Clonmel Glass & Mirrors Ltd";
+  doc.text(companyName, col3X, yPos);
+
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.text(invoice.customerName || "Cash Sale", leftMargin + 60, yPos + 5);
-
-  // Column 3: Company Details (Right aligned)
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.setTextColor(0, 0, 0);
-
-  const companyDetails = [
-    "Clonmel Glass & Mirrors Ltd",
+  const companyInfo = isMirrorzone ? [
     "24 Mary Street",
-    "Clonmel",
-    "Limerick / Co. Tipperary",
+    "Clonmel, Co. Tipperary, E91 YV52",
     "",
-    "Tel: (052) 612 1111",
+    "Tel: (052) 61 26306",
+    "Email: info@mirrorzone.ie",
     "Web: www.mirrorzone.ie"
+  ] : [
+    "24 Mary Street",
+    "Clonmel, Co. Tipperary",
+    "",
+    "Tel: (052) 612 6306",
+    "Mobile: 086 255 4701",
+    "Email: info@clonmelglassandmirrors.com"
   ];
-
-  let detailY = yPos;
-  companyDetails.forEach(line => {
-    doc.setFont("helvetica", line.includes("Clonmel Glass") ? "bold" : "normal");
-    doc.setFontSize(9);
-    doc.text(line, pageWidth - rightMargin, detailY, { align: 'right' });
-    detailY += 4;
+  let compY = yPos + 5;
+  companyInfo.forEach(l => {
+    // Wrap text if it's too long for the column
+    const wrappedLines = doc.splitTextToSize(l, colWidth - 5);
+    wrappedLines.forEach((line: string) => {
+      doc.text(line, col3X, compY);
+      compY += 4;
+    });
   });
 
-  yPos += 30;
+  yPos = Math.max(billY, shipY, compY) + 5;
 
-  // --- INFO ROW ---
+  // 4. INFO STRIP (Horizontal)
+  drawHorizLine(yPos);
+  yPos += 6;
+
+  const infoCols = [
+    { label: `${docTitle} Date`, val: new Date(invoice.dateIssued).toLocaleDateString('en-GB') },
+    { label: "Ref. No.", val: invoice.invoiceNumber },
+    { label: "Account Manager", val: "Admin" },
+    { label: "VAT No.", val: "IE8252470Q" },
+    { label: "Payment Due", val: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-GB') : "On Receipt" },
+    { label: "Credit Terms", val: "30 Days" }
+  ];
+
+  const infoWidth = contentWidth / infoCols.length;
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
-  doc.setTextColor(0, 0, 0);
-
-  const infoData = [
-    ["Invoice Date", invoice.dateIssued],
-    ["Ref. No.", invoice.invoiceNumber],
-    ["Account Manager", "Admin"],
-    ["VAT No.", "IE8252470Q"],
-    ["Payment Due", invoice.dueDate]
-  ];
-
-  const colWidth = (pageWidth - leftMargin - rightMargin) / 5;
-  infoData.forEach((item, i) => {
-    const x = leftMargin + (i * colWidth);
-    doc.setFont("helvetica", "bold");
-    doc.text(item[0], x, yPos);
-    doc.setFont("helvetica", "normal");
-    doc.text(item[1], x, yPos + 4);
+  infoCols.forEach((col, i) => {
+    doc.text(col.label, margin + (i * infoWidth), yPos);
   });
 
-  yPos += 12;
+  yPos += 5;
+  doc.setFont("helvetica", "normal");
+  infoCols.forEach((col, i) => {
+    doc.text(col.val, margin + (i * infoWidth), yPos);
+  });
 
-  // Horizontal line
-  doc.setDrawColor(220, 220, 220);
-  doc.setLineWidth(0.5);
-  doc.line(leftMargin, yPos, pageWidth - rightMargin, yPos);
+  yPos += 5;
+  drawHorizLine(yPos);
 
-  yPos += 8;
+  // 5. ITEMS TABLE
+  yPos += 10;
 
-  // --- ITEMS TABLE ---
   const tableHead = [["Description", "Quantity", "Price", "VAT Rate", "Total"]];
-
   const tableBody = invoice.items.map(item => [
     item.description,
     item.quantity.toString(),
-    item.unitPrice.toFixed(2),
-    `${invoice.taxRate.toFixed(2)}%`,
-    item.total.toFixed(2)
+    formatCurrency(item.unitPrice),
+    `23.00%`,
+    formatCurrency(item.total)
   ]);
 
   autoTable(doc, {
@@ -203,88 +260,190 @@ const createInvoiceDoc = async (invoice: Invoice, logoUrl?: string): Promise<jsP
     body: tableBody,
     theme: 'plain',
     styles: {
-      fontSize: 10,
-      textColor: [0, 0, 0],
-      cellPadding: 3,
-      font: "helvetica"
+      fontSize: 8,
+      font: "helvetica",
+      textColor: textColor,
+      cellPadding: 5,
+      valign: 'middle'
     },
     headStyles: {
-      fillColor: [255, 255, 255],
-      textColor: [0, 0, 0],
+      fillColor: [243, 244, 246], // Gray-100
+      textColor: [31, 41, 55],    // Gray-800
       fontStyle: 'bold',
-      fontSize: 9
+      fontSize: 9,
+      halign: 'left'
     },
     columnStyles: {
-      0: { cellWidth: 80 }, // Description
-      1: { halign: 'center', cellWidth: 25 }, // Quantity
-      2: { halign: 'right', cellWidth: 25 }, // Price
-      3: { halign: 'center', cellWidth: 25 }, // VAT Rate
-      4: { halign: 'right', cellWidth: 25 } // Total
+      0: { cellWidth: 'auto', halign: 'left' },
+      1: { cellWidth: 25, halign: 'right' },
+      2: { cellWidth: 30, halign: 'right' },
+      3: { cellWidth: 25, halign: 'right' },
+      4: { cellWidth: 30, halign: 'right' }
     },
-    didDrawPage: (data) => {
-      if (data.cursor) {
-        doc.setDrawColor(220, 220, 220);
-        doc.setLineWidth(0.3);
-        doc.line(leftMargin, data.cursor.y, pageWidth - rightMargin, data.cursor.y);
+    didParseCell: (data) => {
+      if (data.section === 'head') {
+        if (data.column.index > 0) {
+          data.cell.styles.halign = 'right';
+        }
       }
     }
   });
 
   // @ts-ignore
-  yPos = doc.lastAutoTable.finalY + 15;
+  yPos = doc.lastAutoTable.finalY + 10;
 
-  // --- FOOTER SECTION ---
-  // Left side: Payment Terms
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.setTextColor(0, 0, 0);
-  doc.text("Payment Terms:", leftMargin, yPos);
+  // 6. VAT ANALYSIS TABLE (Left) & TOTALS (Right)
+  const leftColX = margin;
+  const rightColX = pageWidth - margin - 80;
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  yPos += 5;
-  doc.text("Bank Transfer to: PTSB BANK", leftMargin, yPos);
-  yPos += 4;
-  doc.text("IBAN: IE98IPBS99071010105209", leftMargin, yPos);
-  yPos += 4;
-  doc.text("Deposit of 50% prior to installation.", leftMargin, yPos);
-
-  // Right side: Totals
-  // @ts-ignore
-  const totalsStartY = doc.lastAutoTable.finalY + 15;
-  const totalsX = pageWidth - rightMargin - 60;
-
-  const totalsData = [
-    ["Total Net", `EUR ${invoice.subtotal.toFixed(2)}`],
-    ["Total VAT", `EUR ${invoice.taxAmount.toFixed(2)}`],
-    ["Total Gross", `EUR ${invoice.total.toFixed(2)}`]
+  // VAT Analysis Table
+  const vatRows = [
+    ["23.00%", `€${formatCurrency(invoice.subtotal)}`, `€${formatCurrency(invoice.taxAmount)}`, `€${formatCurrency(invoice.total)}`]
   ];
 
-  let totalY = totalsStartY;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text("VAT Analysis", leftColX, yPos - 2);
 
-  totalsData.forEach(([label, value]) => {
-    doc.text(label, totalsX, totalY);
-    doc.text(value, pageWidth - rightMargin, totalY, { align: 'right' });
-    totalY += 6;
+  autoTable(doc, {
+    startY: yPos,
+    margin: { left: leftColX },
+    tableWidth: 90,
+    head: [["VAT Rate %", "Net", "VAT", "Gross"]],
+    body: vatRows,
+    theme: 'plain',
+    styles: {
+      fontSize: 8,
+      font: "helvetica",
+      textColor: textColor,
+      cellPadding: 3,
+      lineColor: [229, 231, 235],
+      lineWidth: 0.1,
+    },
+    headStyles: {
+      fillColor: [243, 244, 246],
+      textColor: [0, 0, 0],
+      fontStyle: 'bold',
+      halign: 'left'
+    },
+    columnStyles: {
+      0: { halign: 'left' },
+      1: { halign: 'right' },
+      2: { halign: 'right' },
+      3: { halign: 'right' }
+    }
   });
 
-  // Total Payable (bigger and bold)
-  totalY += 2;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.text("Total Payable", totalsX, totalY);
-  doc.text(`EUR ${invoice.balanceDue.toFixed(2)}`, pageWidth - rightMargin, totalY, { align: 'right' });
+  // TOTALS SECTION (Right Side)
+  let totalsY = yPos;
+  const valX = pageWidth - margin;
+  const labX = pageWidth - margin - 60;
 
-  // --- FOOTER TEXT ---
+  const drawTotalLine = (label: string, value: string, isBold: boolean = false, isFinal: boolean = false) => {
+    doc.setFont("helvetica", isBold ? "bold" : "normal");
+    doc.setFontSize(isBold && isFinal ? 11 : 9);
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+
+    doc.text(label, labX, totalsY + 4);
+    doc.text(value, valX, totalsY + 4, { align: 'right' });
+    totalsY += 6;
+  };
+
+  // Border Top
+  doc.setDrawColor(209, 213, 219);
+  doc.setLineWidth(0.3);
+  doc.line(labX, totalsY, valX, totalsY);
+
+  drawTotalLine("Total Net", `€${formatCurrency(invoice.subtotal)}`);
+  drawTotalLine("Total Discount", "0.00");
+  drawTotalLine("Total VAT", `€${formatCurrency(invoice.taxAmount)}`);
+
+  // Total Gross
+  totalsY += 2;
+  doc.line(labX, totalsY, valX, totalsY);
+  totalsY += 1;
+  drawTotalLine("Total Gross", `€${formatCurrency(invoice.total)}`, true);
+  totalsY += 1;
+  doc.line(labX, totalsY, valX, totalsY);
+
+  // Less Deposit
+  totalsY += 2;
+  const deposit = invoice.amountPaid || 0;
+  drawTotalLine("Less Deposit", `€${formatCurrency(deposit)}`);
+
+  // Total Payable
+  totalsY += 2;
+  doc.setDrawColor(31, 41, 55);
+  doc.setLineWidth(0.5);
+  doc.line(labX, totalsY, valX, totalsY);
+
+  totalsY += 1;
+  drawTotalLine("Total Payable", `€${formatCurrency(invoice.balanceDue)}`, true, true);
+
+  // 7. FOOTER SECTION
+  // @ts-ignore
+  const vatTableEnd = doc.lastAutoTable.finalY;
+  yPos = Math.max(vatTableEnd, totalsY) + 15;
+
+  doc.setDrawColor(229, 231, 235);
+  doc.setLineWidth(0.1);
+  doc.line(margin, yPos, pageWidth - margin, yPos);
+  yPos += 5;
+
+  const leftFooterX = margin;
+  const rightFooterX = pageWidth - margin - 70; // Positioned on right side
+
+  // Payment Terms
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text("Payment Terms", leftFooterX, yPos);
+  yPos += 5;
+
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.setTextColor(180, 180, 180);
+  doc.text("Payment terms - Deposit of 50% prior to Installation", leftFooterX, yPos); yPos += 4;
+  doc.text("Balance on completion of Installation", leftFooterX, yPos); yPos += 4;
+  if (invoice.notes) {
+    doc.text("Notes:", leftFooterX, yPos); yPos += 4;
+    const notes = doc.splitTextToSize(invoice.notes || "", 80);
+    doc.text(notes, leftFooterX, yPos);
+  }
 
-  const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  doc.text(`Printed on: ${today} | Page 1 of 1`, leftMargin, pageHeight - 10);
-  doc.text("Created by Clonmel Glass Invoice Hub", pageWidth - rightMargin, pageHeight - 10, { align: 'right' });
+  // Bank Details
+  let bankY = Math.max(vatTableEnd, totalsY) + 20;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text("Bank Details", rightFooterX, bankY);
+  bankY += 5;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  const bankLines = [
+    { l: "Account Name:", v: "Clonmel Glass & Mirrors" },
+    { l: "Bank Name:", v: "PTSB" },
+    { l: "BIC/SWIFT:", v: "PTSBIE2D" },
+    { l: "IBAN:", v: "IE98IPBS99071010105209" },
+  ];
+
+  bankLines.forEach(line => {
+    doc.setFont("helvetica", "bold");
+    doc.text(line.l, rightFooterX, bankY);
+    doc.setFont("helvetica", "normal");
+    doc.text(line.v, rightFooterX + 25, bankY);
+    bankY += 4;
+  });
+
+  // Bottom Footer
+  const pageBottom = pageHeight - 10;
+  doc.setFillColor(243, 244, 246);
+  doc.rect(0, pageBottom - 5, pageWidth, 15, 'F');
+
+  doc.setTextColor(75, 85, 99);
+  doc.setFontSize(8);
+  const todayDate = new Date().toLocaleDateString('en-GB');
+  doc.text(`Printed as: ${todayDate} | Page 1 of 1`, margin, pageBottom + 2);
+  doc.text("Created by Clonmel Glass Invoice Hub", pageWidth - margin, pageBottom + 2, { align: 'right' });
 
   return doc;
 };
