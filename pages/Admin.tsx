@@ -4,7 +4,7 @@ import { Product, User, UserRole } from '../types';
 import {
   Trash2, Edit2, Plus, Package, Users, Settings,
   Upload, Search, Database, RefreshCcw, ShieldCheck,
-  Terminal, Cloud, Code, Copy, AlertTriangle, X
+  Terminal, Cloud, Code, Copy, AlertTriangle, X, ChevronLeft
 } from 'lucide-react';
 
 const Admin = () => {
@@ -17,12 +17,7 @@ const Admin = () => {
 
   const [activeTab, setActiveTab] = useState<'PRODUCTS' | 'USERS'>(currentView === 'USERS' ? 'USERS' : 'PRODUCTS');
   const [activeCompany, setActiveCompany] = useState<'clonmel' | 'mirrorzone'>('clonmel');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [passwordInput, setPasswordInput] = useState('');
-  const [passwordError, setPasswordError] = useState(false);
-
-  // System Engine Password - Change this to your desired password
-  const ADMIN_PASSWORD = 'clonmel2026';
+  /* Secondary authentication removed as per request */
 
   useEffect(() => {
     if (currentView === 'USERS') setActiveTab('USERS');
@@ -36,7 +31,9 @@ const Admin = () => {
   const [pName, setPName] = useState('');
   const [pPrice, setPPrice] = useState('');
   const [pUnit, setPUnit] = useState('sqm');
+
   const [pCategory, setPCategory] = useState('Clear Glass');
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
   // User Form State
   const [uName, setUName] = useState('');
@@ -58,8 +55,11 @@ const Admin = () => {
     if (!list.includes('Clear Glass')) list.push('Clear Glass');
     if (!list.includes('Toughened')) list.push('Toughened');
     if (!list.includes('Mirrors')) list.push('Mirrors');
+
     return ['All', ...list.sort()];
   }, [products]);
+
+  const STANDARD_GLASS_CATEGORIES = ['Clear Glass', 'Toughened', 'Laminated', 'Double Glazed', 'Fire Resistant', 'Obscure', 'Textured', 'Tinted'];
 
   const [productSearch, setProductSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
@@ -82,13 +82,18 @@ const Admin = () => {
     e.preventDefault();
     if (!pName || !pPrice) return;
 
+    // Auto-append "Mirror" if in MirrorZone and not present (to ensure it stays in MirrorZone list)
+    // REMOVED: We now use explicit 'company' field.
+    const finalCategory = pCategory;
+
     const productData: Product = {
       id: editingProduct ? editingProduct.id : `P-${Date.now().toString().slice(-4)}`,
       name: pName,
       price: parseFloat(pPrice),
       unit: pUnit,
-      description: `Commercial Grade ${pCategory}`,
-      category: pCategory
+      description: `Commercial Grade ${finalCategory}`,
+      category: finalCategory,
+      company: activeCompany // Explicitly set company
     };
 
     try {
@@ -99,8 +104,9 @@ const Admin = () => {
       }
       setEditingProduct(null);
       setPName(''); setPPrice(''); setPCategory('Clear Glass'); setPUnit('sqm');
-    } catch (err) {
-      alert("Error updating remote product catalog.");
+    } catch (err: any) {
+      console.error("Save Product Error:", err);
+      alert(`Error saving product: ${err.message || 'Unknown DB Error'}. \n\nCheck if the database migration was run.`);
     }
   };
 
@@ -222,65 +228,10 @@ ALTER TABLE invoices DISABLE ROW LEVEL SECURITY;
 ALTER TABLE users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (passwordInput === ADMIN_PASSWORD) {
-      setIsAuthenticated(true);
-      setPasswordError(false);
-      setPasswordInput('');
-    } else {
-      setPasswordError(true);
-      setTimeout(() => setPasswordError(false), 2000);
-    }
-  };
+
 
   // Show password gate if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <div className="max-w-md mx-auto mt-20">
-        <div className="bg-white p-10 rounded-3xl border-2 border-slate-200 shadow-2xl">
-          <div className="flex items-center justify-center mb-8">
-            <div className="p-4 bg-brand-500 text-white rounded-2xl shadow-xl shadow-brand-500/20">
-              <ShieldCheck size={32} />
-            </div>
-          </div>
-          <h2 className="text-2xl font-black text-slate-800 text-center mb-2">System Engine Access</h2>
-          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest text-center mb-8">
-            Authentication Required
-          </p>
-          <form onSubmit={handlePasswordSubmit} className="space-y-6">
-            <div>
-              <label className="block text-xs font-black text-slate-600 mb-2 uppercase tracking-wider">
-                Admin Password
-              </label>
-              <input
-                type="password"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:ring-brand-500/10 outline-none transition-all ${passwordError
-                  ? 'border-rose-500 focus:border-rose-500'
-                  : 'border-slate-200 focus:border-brand-500'
-                  }`}
-                placeholder="Enter password"
-                autoFocus
-              />
-              {passwordError && (
-                <p className="text-xs text-rose-500 font-bold mt-2 animate-in fade-in slide-in-from-top-1">
-                  Incorrect password. Please try again.
-                </p>
-              )}
-            </div>
-            <button
-              type="submit"
-              className="w-full px-6 py-4 bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition-all font-black uppercase tracking-wider shadow-xl shadow-brand-500/20"
-            >
-              Unlock System Engine
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-24">
@@ -309,7 +260,7 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
               onClick={() => {
                 setActiveCompany('clonmel');
                 setPCategory('Clear Glass');
-                setCategoryFilter('All');
+                setCategoryFilter('All'); // Show all Clonmel products
               }}
               className={`p-6 rounded-2xl border-2 transition-all duration-300 ${activeCompany === 'clonmel'
                 ? 'bg-white border-white shadow-xl scale-[1.02]'
@@ -331,7 +282,8 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
               onClick={() => {
                 setActiveCompany('mirrorzone');
                 setPCategory('Mirrors');
-                setCategoryFilter('Mirrors');
+                setPUnit('pcs'); // Mirrors sold per piece
+                setCategoryFilter('All'); // Show all MirrorZone products
               }}
               className={`p-6 rounded-2xl border-2 transition-all duration-300 ${activeCompany === 'mirrorzone'
                 ? 'bg-white border-white shadow-xl scale-[1.02]'
@@ -381,20 +333,58 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
               </div>
               <div className="space-y-2">
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Classification</label>
-                <select
-                  value={pCategory}
-                  onChange={e => setPCategory(e.target.value)}
-                  className="w-full bg-white text-slate-900 border-2 border-slate-200 rounded-2xl px-6 py-4 text-sm font-black outline-none appearance-none cursor-pointer"
-                  disabled={activeCompany === 'mirrorzone'}
-                >
-                  {activeCompany === 'mirrorzone' ? (
-                    <option value="Mirrors">Mirrors</option>
-                  ) : (
-                    categories.filter(c => c !== 'All' && c !== 'Mirrors').map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={pCategory}
+                    onChange={e => setPCategory(e.target.value)}
+                    onFocus={() => setShowCategoryDropdown(true)}
+                    className="w-full bg-white text-slate-900 border-2 border-slate-200 rounded-2xl pl-6 pr-10 py-4 text-sm font-black focus:border-brand-500 outline-none transition-all"
+                    placeholder={activeCompany === 'mirrorzone' ? "Mirrors" : "e.g. Clear Glass"}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-brand-500"
+                  >
+                    <ChevronLeft size={20} className={`transform transition-transform ${showCategoryDropdown ? '-rotate-90' : 'rotate-0'}`} />
+                  </button>
+
+                  {showCategoryDropdown && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowCategoryDropdown(false)} />
+                      <div className="absolute z-50 w-full mt-2 bg-white rounded-xl border-2 border-slate-200 shadow-2xl max-h-80 overflow-y-auto animate-in zoom-in-95 duration-100">
+                        <div className="py-2">
+                          {categories.filter(c => c !== 'All').map(cat => (
+                            <button
+                              key={cat}
+                              type="button"
+                              onClick={() => { setPCategory(cat); setShowCategoryDropdown(false); }}
+                              className="w-full text-left px-4 py-3 hover:bg-slate-50 text-sm font-bold text-slate-700 hover:text-brand-600 transition-colors border-b border-slate-50 last:border-0"
+                            >
+                              {cat}
+                            </button>
+                          ))}
+
+                          {pCategory && !categories.includes(pCategory) && (
+                            <button
+                              type="button"
+                              onClick={() => setShowCategoryDropdown(false)}
+                              className="w-full text-left px-4 py-3 bg-brand-50 hover:bg-brand-100 text-sm font-black text-brand-600 transition-colors flex items-center gap-2 border-t-2 border-brand-100"
+                            >
+                              <Plus size={14} />
+                              <span>Add "{pCategory}" as new</span>
+                            </button>
+                          )}
+
+                          <div className="px-4 py-2 text-[10px] text-slate-400 font-bold uppercase tracking-widest border-t border-slate-50 mt-1 bg-slate-50/50">
+                            Type in box to add custom...
+                          </div>
+                        </div>
+                      </div>
+                    </>
                   )}
-                </select>
+                </div>
               </div>
               <div className="flex gap-3">
                 <button type="submit" disabled={isSyncing} className={`flex-1 flex items-center justify-center gap-3 font-black py-4 rounded-2xl transition-all disabled:opacity-50 shadow-2xl uppercase text-[10px] tracking-[0.2em] ${editingProduct ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/20' : activeCompany === 'mirrorzone' ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-slate-900/20' : 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/20'}`}>
@@ -438,10 +428,16 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredProducts.filter(p => p.category === 'Mirrors').length === 0 ? (
+                    {filteredProducts.filter(p => (
+                      (p.company === 'mirrorzone') ||
+                      (!p.company && (p.category === 'Mirrors' || String(p.category).toLowerCase().includes('mirror')))
+                    )).length === 0 ? (
                       <tr><td colSpan={3} className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">No mirrors found in catalog</td></tr>
                     ) : (
-                      filteredProducts.filter(p => p.category === 'Mirrors').map(p => (
+                      filteredProducts.filter(p => (
+                        (p.company === 'mirrorzone') ||
+                        (!p.company && (p.category === 'Mirrors' || String(p.category).toLowerCase().includes('mirror')))
+                      )).map(p => (
                         <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
                           <td className="px-8 py-6">
                             <div className="font-black text-slate-900 group-hover:text-brand-600 transition-colors">{String(p.name)}</div>
@@ -449,7 +445,7 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
                           </td>
                           <td className="px-8 py-6">
                             <span className="text-sm font-black text-slate-800">€{Number(p.price).toFixed(2)}</span>
-                            <span className="text-[10px] font-bold text-slate-400 ml-1.5 uppercase">/ {String(p.unit)}</span>
+                            <span className="text-[10px] font-bold text-slate-400 ml-1.5 uppercase">/ UNIT</span>
                           </td>
                           <td className="px-8 py-6 text-right flex items-center justify-end gap-3">
                             <button onClick={() => {
@@ -489,10 +485,16 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredProducts.filter(p => p.category !== 'Mirrors').length === 0 ? (
+                    {filteredProducts.filter(p => (
+                      (p.company === 'clonmel' || !p.company) &&
+                      !String(p.category).toLowerCase().includes('mirror')
+                    )).length === 0 ? (
                       <tr><td colSpan={3} className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">No other products found</td></tr>
                     ) : (
-                      filteredProducts.filter(p => p.category !== 'Mirrors').map(p => (
+                      filteredProducts.filter(p => (
+                        (p.company === 'clonmel' || !p.company) &&
+                        !String(p.category).toLowerCase().includes('mirror')
+                      )).map(p => (
                         <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
                           <td className="px-8 py-6">
                             <div className="font-black text-slate-900 group-hover:text-brand-600 transition-colors">{String(p.name)}</div>
@@ -604,7 +606,9 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
                 {users.map(u => (
                   <tr key={u.id} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-12 py-7 flex items-center gap-6">
-                      <img src={u.avatar} className="w-14 h-14 rounded-2xl border-4 border-white shadow-xl" alt="" />
+                      <div className="w-14 h-14 rounded-2xl border-4 border-white shadow-xl bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center text-white font-black text-xl uppercase">
+                        {u.name.charAt(0)}
+                      </div>
                       <div>
                         <span className="block font-black text-slate-900 text-base tracking-tight">{String(u.name)}</span>
                         <span className="text-[10px] font-bold text-slate-300 uppercase">Hardware ID: {String(u.id)}</span>

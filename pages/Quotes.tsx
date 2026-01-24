@@ -5,7 +5,7 @@ import { FileText, Plus, Search, Eye, Trash2, CheckCircle, XCircle, Clock, Calen
 import { generatePreviewUrl } from '../services/pdfService';
 
 const Quotes = () => {
-    const { user, invoices, setView, setEditingInvoice } = useApp();
+    const { user, invoices, setView, setEditingInvoice, settings } = useApp();
     const [searchTerm, setSearchTerm] = useState('');
 
     const filteredQuotes = invoices.filter(inv =>
@@ -75,7 +75,28 @@ const Quotes = () => {
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Create and manage customer quotes</p>
                 </div>
                 <div className="flex items-center space-x-3">
-                    <button className="flex items-center gap-2 px-6 py-4 bg-brand-600 text-white rounded-2xl hover:bg-brand-700 transition-all shadow-xl shadow-brand-500/20 font-black text-sm uppercase tracking-wider">
+                    <button
+                        onClick={() => {
+                            setEditingInvoice({
+                                id: '',
+                                documentType: 'quote',
+                                invoiceNumber: `QT-${Date.now().toString().slice(-6)}`,
+                                customerName: '',
+                                items: [],
+                                total: 0,
+                                subtotal: 0,
+                                taxAmount: 0,
+                                balanceDue: 0,
+                                amountPaid: 0,
+                                status: PaymentStatus.PENDING,
+                                dateIssued: new Date().toISOString(),
+                                dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                                company: 'clonmel'
+                            } as any);
+                            setView('CREATE_INVOICE');
+                        }}
+                        className="flex items-center gap-2 px-6 py-4 bg-brand-600 text-white rounded-2xl hover:bg-brand-700 transition-all shadow-xl shadow-brand-500/20 font-black text-sm uppercase tracking-wider"
+                    >
                         <Plus size={20} />
                         New Quote
                     </button>
@@ -172,7 +193,7 @@ const Quotes = () => {
                                             </button>
                                             <button
                                                 onClick={async () => {
-                                                    const url = await generatePreviewUrl(quote);
+                                                    const url = await generatePreviewUrl(quote, settings);
                                                     window.open(url, '_blank');
                                                 }}
                                                 className="p-3 text-brand-500 bg-brand-50 hover:bg-brand-500 hover:text-white rounded-2xl transition-all shadow-sm"

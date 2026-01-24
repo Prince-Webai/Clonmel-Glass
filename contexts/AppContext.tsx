@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, Product, Invoice, UserRole, PaymentStatus, ViewState, Customer } from '../types';
+import { User, Product, Invoice, UserRole, PaymentStatus, ViewState, Customer, AppSettings } from '../types';
 import { storageService } from '../services/storageService';
 
 // Initial Data for Seeding
@@ -100,6 +100,21 @@ const INITIAL_PRODUCTS: Product[] = [
   { id: 'W07SAFP', name: '7mm GWPP SAFETY', description: 'Code: W07SAFP - Single', price: 130.31, unit: 'sqm', category: 'Wired' },
 ];
 
+const DEFAULT_SETTINGS: AppSettings = {
+  taxRate: 23,
+  companyName: 'Clonmel Glass & Mirrors Ltd',
+  companyAddress: 'Unit 3, Clonmel Business Park, Clonmel, Co. Tipperary',
+  companyPhone: '+353 52 123 4567',
+  companyEmail: 'accounts@clonmelglass.ie',
+  companyWebsite: 'www.clonmelglass.ie',
+  vatNumber: 'IE 1234567T',
+  bankName: 'Bank of Ireland',
+  accountName: 'Clonmel Glass Ltd',
+  iban: 'IE93 BOFI 9000 1234 5678 90',
+  bic: 'BOFIE2D',
+  defaultNotes: 'Payment due within 30 days. Please quote invoice number on all payments.',
+};
+
 interface AppContextType {
   user: User | null;
   login: (email: string) => void;
@@ -131,6 +146,8 @@ interface AppContextType {
   refreshDatabase: () => Promise<void>;
   editingInvoice: Invoice | null;
   setEditingInvoice: (invoice: Invoice | null) => void;
+  settings: AppSettings;
+  updateSettings: (settings: AppSettings) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -149,6 +166,7 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [companyLogo, setCompanyLogo] = useState<string>('');
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
 
   const initDb = async () => {
     setIsLoading(true);
@@ -180,6 +198,12 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
       setInvoices(storedInvoices);
       setCustomers(storedCustomers);
       setCompanyLogo(storedLogo);
+
+      const dbSettings = await storageService.getSettings();
+      if (dbSettings) {
+        setSettings(prev => ({ ...prev, ...dbSettings }));
+      }
+
       setDatabaseError(false);
     } catch (err: any) {
       if (err.message === 'DATABASE_MISSING') {
@@ -327,6 +351,19 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
     }
   };
 
+  const updateSettings = async (newSettings: AppSettings) => {
+    setIsSyncing(true);
+    try {
+      await storageService.saveSettings(newSettings);
+      setSettings(newSettings);
+    } catch (e) {
+      console.error("Failed to save settings:", e);
+      throw e;
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const addCustomer = async (customer: Customer) => {
     setIsSyncing(true);
     try {
@@ -369,7 +406,8 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
       companyLogo, setCompanyLogo: updateLogo,
       isSyncing, isLoading, databaseError,
       refreshDatabase: initDb,
-      editingInvoice, setEditingInvoice
+      editingInvoice, setEditingInvoice,
+      settings, updateSettings
     }}>
       {children}
     </AppContext.Provider>

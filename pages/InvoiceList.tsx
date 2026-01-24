@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { Invoice, PaymentStatus } from '../types';
-import { Search, CreditCard, Download, Eye, X, Check, Euro, BellRing, Clock, CheckCircle2, AlertCircle, Trash2, Edit } from 'lucide-react';
-import { downloadInvoicePDF, generatePreviewUrl } from '../services/pdfService';
+import { Search, CreditCard, Download, Eye, X, Check, Euro, BellRing, Clock, CheckCircle2, AlertCircle, Trash2, Edit, Mail } from 'lucide-react';
+import { downloadInvoicePDF, generatePreviewUrl, sendInvoiceViaWebhook } from '../services/pdfService';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -62,7 +62,7 @@ const ProgressBar = ({ paid, total }: { paid: number, total: number }) => {
 };
 
 const InvoiceList = () => {
-  const { invoices, updateInvoice, deleteInvoice, setView, companyLogo, selectedInvoiceId, setSelectedInvoiceId, setEditingInvoice } = useApp();
+  const { invoices, updateInvoice, deleteInvoice, setView, companyLogo, selectedInvoiceId, setSelectedInvoiceId, setEditingInvoice, settings, customers } = useApp();
   const [filter, setFilter] = useState('');
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<string>('');
@@ -91,8 +91,9 @@ const InvoiceList = () => {
     updateInvoice({
       ...inv,
       amountPaid: Math.min(newPaid, inv.total),
-      balanceDue: Math.max(0, newBalance),
-      status: newStatus
+      balanceDue: newStatus === PaymentStatus.PAID ? 0 : Math.max(0, newBalance), // Force 0 when PAID
+      status: newStatus,
+      paymentDate: newStatus === PaymentStatus.PAID ? new Date().toISOString() : inv.paymentDate
     });
     setEditingPaymentId(null);
     setPaymentAmount('');
@@ -100,7 +101,7 @@ const InvoiceList = () => {
 
   const handleDownload = async (inv: Invoice) => {
     try {
-      await downloadInvoicePDF(inv, companyLogo);
+      await downloadInvoicePDF(inv, settings, companyLogo);
     } catch (e) {
       alert("Download failed. Check console.");
     }
@@ -108,10 +109,28 @@ const InvoiceList = () => {
 
   const handlePreview = async (inv: Invoice) => {
     try {
-      const url = await generatePreviewUrl(inv, companyLogo);
+      const url = await generatePreviewUrl(inv, settings, companyLogo);
       setPreviewUrl(url);
     } catch (e) {
       alert("Preview failed.");
+    }
+  };
+
+  const handleSendEmail = async (inv: Invoice) => {
+    if (!settings.webhookUrl) {
+      alert("Please configure Webhook URL in Settings -> Integrations first.");
+      return;
+    }
+
+    if (window.confirm(`Send invoice ${inv.invoiceNumber} to ${inv.customerEmail || 'customer'}?`)) {
+      try {
+        const fullCustomer = customers.find(c => c.id === inv.customerId);
+        await sendInvoiceViaWebhook(inv, settings, companyLogo, fullCustomer);
+        alert("Invoice sent successfully!");
+      } catch (e) {
+        console.error(e);
+        alert("Failed to send invoice. Check settings and console.");
+      }
     }
   };
 
@@ -166,7 +185,7 @@ const InvoiceList = () => {
             />
           </div>
           <button
-            onClick={() => setView('CREATE_INVOICE')}
+            onClick={() => { setEditingInvoice(null); setView('CREATE_INVOICE'); }}
             className="bg-brand-600 text-white px-6 py-3 rounded-2xl font-black hover:bg-brand-700 transition-all text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-brand-500/30"
           >
             New Invoice
@@ -230,6 +249,9 @@ const InvoiceList = () => {
                         </button>
                         <button onClick={() => handleDownload(inv)} className="p-3 text-slate-600 bg-slate-100 hover:bg-slate-600 hover:text-white rounded-2xl transition-all shadow-sm" title="Download PDF">
                           <Download size={18} />
+                        </button>
+                        <button onClick={() => handleSendEmail(inv)} className="p-3 text-sky-600 bg-sky-50 hover:bg-sky-600 hover:text-white rounded-2xl transition-all shadow-sm" title="Send via Webhook">
+                          <Mail size={18} />
                         </button>
                         <button onClick={() => { setEditingInvoice(inv); setView('CREATE_INVOICE'); }} className="p-3 text-amber-600 bg-amber-50 hover:bg-amber-500 hover:text-white rounded-2xl transition-all shadow-sm" title="Edit Invoice">
                           <Edit size={18} />

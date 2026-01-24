@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { Product, Invoice, User, Customer } from '../types';
+import { Product, Invoice, User, Customer, AppSettings } from '../types';
 
 const SUPABASE_URL = 'https://azyeptjbktvkqiigotbi.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6eWVwdGpia3R2a3FpaWdvdGJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4ODc0MjYsImV4cCI6MjA4MzQ2MzQyNn0.XHc7sOAgRW9AQJvOFVQ25R0ovsIr8Bxnv_hukDag2LY';
@@ -30,7 +30,10 @@ export const storageService = {
       if (isTableMissingError(error)) throw new Error('DATABASE_MISSING');
       return [];
     }
-    return data || [];
+    return (data || []).map(p => ({
+      ...p,
+      company: p.company || (p.category.toLowerCase().includes('mirror') ? 'mirrorzone' : 'clonmel')
+    }));
   },
 
   async addProduct(product: Product): Promise<void> {
@@ -72,7 +75,8 @@ export const storageService = {
       createdBy: String(inv.created_by || ''),
       lastReminderSent: inv.last_reminder_sent ? String(inv.last_reminder_sent) : undefined,
       documentType: inv.document_type ? String(inv.document_type) : undefined,
-      validUntil: inv.valid_until ? String(inv.valid_until) : undefined
+      validUntil: inv.valid_until ? String(inv.valid_until) : undefined,
+      paymentDate: inv.payment_date ? String(inv.payment_date) : undefined
     }));
   },
 
@@ -100,7 +104,8 @@ export const storageService = {
       created_by: String(invoice.createdBy),
       last_reminder_sent: invoice.lastReminderSent ? String(invoice.lastReminderSent) : null,
       document_type: invoice.documentType ? String(invoice.documentType) : 'invoice',
-      valid_until: invoice.validUntil ? String(invoice.validUntil) : null
+      valid_until: invoice.validUntil ? String(invoice.validUntil) : null,
+      payment_date: invoice.paymentDate ? String(invoice.paymentDate) : null
     };
     const { error } = await supabase.from('invoices').insert([dbInvoice]);
     if (error) throw error;
@@ -112,6 +117,7 @@ export const storageService = {
     if (invoice.balanceDue !== undefined) updatePayload.balance_due = Number(invoice.balanceDue);
     if (invoice.status !== undefined) updatePayload.status = String(invoice.status);
     if (invoice.lastReminderSent !== undefined) updatePayload.last_reminder_sent = invoice.lastReminderSent ? String(invoice.lastReminderSent) : null;
+    if (invoice.paymentDate !== undefined) updatePayload.payment_date = invoice.paymentDate ? String(invoice.paymentDate) : null;
 
     if (Object.keys(updatePayload).length === 0) return;
 
@@ -168,6 +174,28 @@ export const storageService = {
 
   async saveLogo(logo: string): Promise<void> {
     const { error } = await supabase.from('app_settings').upsert({ key: 'company_logo', value: logo });
+    if (error) throw error;
+  },
+
+  // --- Settings ---
+  async getSettings(): Promise<AppSettings | null> {
+    try {
+      const { data, error } = await supabase.from('app_settings').select('value').eq('key', 'global_settings').maybeSingle();
+      if ((error && isTableMissingError(error)) || !data) return null;
+      return typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  async saveSettings(settings: AppSettings): Promise<void> {
+    // Check if table exists first by trying to read logo or just catch error
+    // We assume table exists if other things work, but 'app_settings' might need creation if it was only used for logo efficiently before?
+    // Actually the mock logic suggests it shares table.
+    const { error } = await supabase.from('app_settings').upsert({
+      key: 'global_settings',
+      value: JSON.stringify(settings)
+    });
     if (error) throw error;
   },
 

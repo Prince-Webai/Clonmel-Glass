@@ -15,7 +15,8 @@ import {
   CloudCheck,
   Database,
   HardDrive,
-  UserCircle
+  UserCircle,
+  Settings
 } from 'lucide-react';
 
 const Layout = ({ children }: { children?: React.ReactNode }) => {
@@ -58,8 +59,7 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
           <div className="h-12 w-12 bg-brand-500 rounded-lg flex items-center justify-center text-white font-bold text-xl mb-3 shadow-lg shadow-brand-500/30 hidden">
             CG
           </div>
-          <h1 className="text-lg font-bold text-slate-800">Clonmel Glass</h1>
-          <p className="text-xs text-slate-400">Quotes & Invoices</p>
+
 
           <div className="absolute top-4 right-4 flex items-center space-x-1" title={databaseError ? "Using Local Mock Data" : "Connected to Cloud DB"}>
             <div className={`h-2 w-2 rounded-full ${isSyncing ? 'bg-purple-500 animate-pulse' : databaseError ? 'bg-amber-400' : 'bg-emerald-400'}`}></div>
@@ -70,7 +70,9 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          <NavItem view="DASHBOARD" icon={LayoutDashboard} label="Dashboard" />
+          {user.role === UserRole.ADMIN && (
+            <NavItem view="DASHBOARD" icon={LayoutDashboard} label="Dashboard" />
+          )}
           <NavItem view="CALENDAR" icon={CalendarDays} label="Schedule" />
           <NavItem view="INVOICES" icon={FileText} label="Invoices" />
           <NavItem view="QUOTES" icon={FileCheck} label="Quotes" />
@@ -84,15 +86,21 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
               </div>
               <NavItem view="PRODUCTS" icon={Package} label="Products" />
               <NavItem view="USERS" icon={Users} label="Users" />
+              <NavItem view="SETTINGS" icon={Settings} label="Settings" />
             </>
           )}
         </nav>
 
         <div className="p-4 border-t border-slate-100">
-          <div className="flex items-center space-x-3 mb-4 px-2">
-            <img src={user.avatar} alt="User" className="h-8 w-8 rounded-full bg-slate-200 border border-slate-100 shadow-sm" />
-            <div className="overflow-hidden">
-              <p className="text-sm font-medium text-slate-700 truncate">{user.name}</p>
+          <div className="flex items-center gap-3 px-4 py-3 mb-6 bg-slate-900 mx-4 rounded-xl border border-slate-800 shadow-lg relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-r from-brand-600/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+            <div className="h-8 w-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-white font-black text-xs shadow-sm shadow-brand-500/10">
+              {user.name.charAt(0)}
+            </div>
+
+            <div className="flex-1 min-w-0 relative z-10">
+              <p className="text-sm font-medium text-white truncate">{user.name}</p>
               <p className="text-xs text-slate-400 truncate">{user.role}</p>
             </div>
           </div>
@@ -136,7 +144,9 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
                 <button onClick={() => setMobileMenuOpen(false)} className="text-slate-500">✕</button>
               </div>
               <nav className="space-y-2">
-                <NavItem view="DASHBOARD" icon={LayoutDashboard} label="Dashboard" />
+                {user.role === UserRole.ADMIN && (
+                  <NavItem view="DASHBOARD" icon={LayoutDashboard} label="Dashboard" />
+                )}
                 <NavItem view="CALENDAR" icon={CalendarDays} label="Schedule" />
                 <NavItem view="INVOICES" icon={FileText} label="Invoices" />
                 <NavItem view="CREATE_INVOICE" icon={PlusCircle} label="New Invoice" />
@@ -146,6 +156,7 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
                     <hr className="my-2 border-slate-100" />
                     <NavItem view="PRODUCTS" icon={Package} label="Products" />
                     <NavItem view="USERS" icon={Users} label="Users" />
+                    <NavItem view="SETTINGS" icon={Settings} label="Settings" />
                   </>
                 )}
                 <hr className="my-2 border-slate-100" />

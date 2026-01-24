@@ -1,6 +1,6 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Invoice, PaymentStatus } from "../types";
+import { Invoice, PaymentStatus, AppSettings, Customer } from "../types";
 
 // Helper to format currency with comma separators
 const formatCurrency = (amount: number): string => {
@@ -28,7 +28,7 @@ const getImageBase64 = async (url: string): Promise<string> => {
 };
 
 // Helper to generate the jsPDF instance
-const createInvoiceDoc = async (invoice: Invoice, logoUrl?: string): Promise<jsPDF> => {
+const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl?: string): Promise<jsPDF> => {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -43,7 +43,7 @@ const createInvoiceDoc = async (invoice: Invoice, logoUrl?: string): Promise<jsP
   // --- BRANDING CONFIG ---
   const isMirrorzone = invoice.company === 'mirrorzone';
   const brandColor: [number, number, number] = isMirrorzone ? [15, 23, 42] : [220, 38, 38];
-  const textColor = [0, 0, 0];
+  const textColor: [number, number, number] = [0, 0, 0];
 
   // Helper for lines
   const drawHorizLine = (y: number, thickness: number = 0.1) => {
@@ -92,8 +92,8 @@ const createInvoiceDoc = async (invoice: Invoice, logoUrl?: string): Promise<jsP
   doc.saveGraphicsState();
 
   // Move to center of ribbon and rotate
-  const textX = 11; // Moved left from 14
-  const textY = 20;
+  const textX = 15; // Centered
+  const textY = 15; // Centered
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
@@ -125,14 +125,18 @@ const createInvoiceDoc = async (invoice: Invoice, logoUrl?: string): Promise<jsP
   doc.text(invoice.invoiceNumber, margin, yPos + 7);
 
   // Logo (Top Right)
+  // Logo (Top Right)
   const logoPath = isMirrorzone ? '/mirrorzone-logo.png' : '/clonmel-logo.png';
+  const format = 'PNG'; // Both are now PNGs
+
   try {
     const logoBase64 = await getImageBase64(logoPath);
     if (logoBase64) {
-      const maxHeight = 15;
+      // Adjusted for wider/shorter look as requested
+      const maxHeight = isMirrorzone ? 20 : 15;
 
-      let logoW = isMirrorzone ? 25 : 45;
-      let logoH = isMirrorzone ? 25 : 15;
+      let logoW = isMirrorzone ? 80 : 45;
+      let logoH = isMirrorzone ? 16 : 15;
 
       if (logoH > maxHeight) {
         const ratio = maxHeight / logoH;
@@ -141,7 +145,7 @@ const createInvoiceDoc = async (invoice: Invoice, logoUrl?: string): Promise<jsP
       }
 
       const logoX = pageWidth - margin - logoW;
-      doc.addImage(logoBase64, 'PNG', logoX, yPos - 10, logoW, logoH);
+      doc.addImage(logoBase64, format, logoX, yPos - 10, logoW, logoH);
     }
   } catch (error) {
     console.error('Error adding logo:', error);
@@ -161,9 +165,12 @@ const createInvoiceDoc = async (invoice: Invoice, logoUrl?: string): Promise<jsP
   doc.text(`${docTitle} To:`, margin, yPos);
 
   doc.setFont("helvetica", "normal");
+  const addressParts = (invoice.customerAddress || '').split(',').map(s => s.trim()).filter(Boolean);
+  const formattedAddressLines = addressParts.flatMap(part => doc.splitTextToSize(part, colWidth - 5));
+
   const billLines = [
     invoice.customerName,
-    ...(invoice.customerAddress ? doc.splitTextToSize(invoice.customerAddress, colWidth - 5) : [])
+    ...formattedAddressLines
   ].filter(Boolean);
 
   let billY = yPos + 5;
@@ -186,20 +193,18 @@ const createInvoiceDoc = async (invoice: Invoice, logoUrl?: string): Promise<jsP
 
   doc.setFont("helvetica", "normal");
   const companyInfo = isMirrorzone ? [
-    "24 Mary Street",
-    "Clonmel, Co. Tipperary, E91 YV52",
+    settings.mirrorZoneAddress || "24 Mary Street, Clonmel, Co. Tipperary, E91 YV52",
     "",
-    "Tel: (052) 61 26306",
-    "Email: info@mirrorzone.ie",
-    "Web: www.mirrorzone.ie"
+    `Tel: ${settings.mirrorZonePhone || "(052) 61 26306"}`,
+    `Email: ${settings.mirrorZoneEmail || "info@mirrorzone.ie"}`,
+    settings.mirrorZoneWebsite || "Web: www.mirrorzone.ie"
   ] : [
-    "24 Mary Street",
-    "Clonmel, Co. Tipperary",
+    settings.companyAddress || "24 Mary Street, Clonmel, Co. Tipperary",
     "",
-    "Tel: (052) 612 6306",
-    "Mobile: 086 255 4701",
-    "Email: info@clonmelglassandmirrors.com"
-  ];
+    `Tel: ${settings.companyPhone || "(052) 612 6306"}`,
+    `Email: ${settings.companyEmail || "info@clonmelglassandmirrors.com"}`,
+    settings.companyWebsite ? `Web: ${settings.companyWebsite}` : ""
+  ].filter(Boolean);
   let compY = yPos + 5;
   companyInfo.forEach(l => {
     // Wrap text if it's too long for the column
@@ -267,8 +272,8 @@ const createInvoiceDoc = async (invoice: Invoice, logoUrl?: string): Promise<jsP
       valign: 'middle'
     },
     headStyles: {
-      fillColor: [243, 244, 246], // Gray-100
-      textColor: [31, 41, 55],    // Gray-800
+      fillColor: [243, 244, 246] as any, // Gray-100
+      textColor: [31, 41, 55] as any,    // Gray-800
       fontStyle: 'bold',
       fontSize: 9,
       halign: 'left'
@@ -317,11 +322,11 @@ const createInvoiceDoc = async (invoice: Invoice, logoUrl?: string): Promise<jsP
       font: "helvetica",
       textColor: textColor,
       cellPadding: 3,
-      lineColor: [229, 231, 235],
+      lineColor: [229, 231, 235] as any,
       lineWidth: 0.1,
     },
     headStyles: {
-      fillColor: [243, 244, 246],
+      fillColor: [243, 244, 246] as any,
       textColor: [0, 0, 0],
       fontStyle: 'bold',
       halign: 'left'
@@ -393,45 +398,48 @@ const createInvoiceDoc = async (invoice: Invoice, logoUrl?: string): Promise<jsP
   const leftFooterX = margin;
   const rightFooterX = pageWidth - margin - 70; // Positioned on right side
 
-  // Payment Terms
+  // Payment Terms - REMOVED as per request, just showing Notes if present
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
-  doc.text("Payment Terms", leftFooterX, yPos);
-  yPos += 5;
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.text("Payment terms - Deposit of 50% prior to Installation", leftFooterX, yPos); yPos += 4;
-  doc.text("Balance on completion of Installation", leftFooterX, yPos); yPos += 4;
   if (invoice.notes) {
-    doc.text("Notes:", leftFooterX, yPos); yPos += 4;
+    doc.text("Notes:", leftFooterX, yPos);
+    yPos += 4;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
     const notes = doc.splitTextToSize(invoice.notes || "", 80);
     doc.text(notes, leftFooterX, yPos);
   }
 
   // Bank Details
-  let bankY = Math.max(vatTableEnd, totalsY) + 20;
+  yPos += 10; // Add space between Notes and Bank Details
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
-  doc.text("Bank Details", rightFooterX, bankY);
-  bankY += 5;
+  doc.text("Bank Details", leftFooterX, yPos);
+  yPos += 5;
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  const bankLines = [
-    { l: "Account Name:", v: "Clonmel Glass & Mirrors" },
-    { l: "Bank Name:", v: "PTSB" },
-    { l: "BIC/SWIFT:", v: "PTSBIE2D" },
-    { l: "IBAN:", v: "IE98IPBS99071010105209" },
+
+  const bankLines = isMirrorzone ? [
+    { l: "Account Name:", v: settings.mirrorZoneAccountName || "MirrorZone" },
+    { l: "Bank Name:", v: settings.mirrorZoneBankName || "Bank of Ireland" },
+    { l: "BIC/SWIFT:", v: settings.mirrorZoneBic || "BOFIIE2D" },
+    { l: "IBAN:", v: settings.mirrorZoneIban || "IE12BOFI90001010101234" },
+  ] : [
+    { l: "Account Name:", v: settings.accountName || "Clonmel Glass & Mirrors" },
+    { l: "Bank Name:", v: settings.bankName || "PTSB" },
+    { l: "BIC/SWIFT:", v: settings.bic || "PTSBIE2D" },
+    { l: "IBAN:", v: settings.iban || "IE98IPBS99071010105209" },
   ];
 
   bankLines.forEach(line => {
     doc.setFont("helvetica", "bold");
-    doc.text(line.l, rightFooterX, bankY);
+    doc.text(line.l, leftFooterX, yPos);
     doc.setFont("helvetica", "normal");
-    doc.text(line.v, rightFooterX + 25, bankY);
-    bankY += 4;
+    doc.text(line.v, leftFooterX + 25, yPos);
+    yPos += 4;
   });
 
   // Bottom Footer
@@ -449,12 +457,106 @@ const createInvoiceDoc = async (invoice: Invoice, logoUrl?: string): Promise<jsP
 };
 
 // Exported Actions
-export const downloadInvoicePDF = async (invoice: Invoice, logoUrl?: string) => {
-  const doc = await createInvoiceDoc(invoice, logoUrl);
+export const downloadInvoicePDF = async (invoice: Invoice, settings: AppSettings, logoUrl?: string) => {
+  const doc = await createInvoiceDoc(invoice, settings, logoUrl);
   doc.save(`${invoice.invoiceNumber}.pdf`);
 };
 
-export const generatePreviewUrl = async (invoice: Invoice, logoUrl?: string): Promise<string> => {
-  const doc = await createInvoiceDoc(invoice, logoUrl);
+export const generatePreviewUrl = async (invoice: Invoice, settings: AppSettings, logoUrl?: string): Promise<string> => {
+  const doc = await createInvoiceDoc(invoice, settings, logoUrl);
   return doc.output('bloburl').toString();
+};
+
+export const sendInvoiceViaWebhook = async (invoice: Invoice, settings: AppSettings, logoUrl?: string, customer?: Customer): Promise<boolean> => {
+  if (!settings.webhookUrl) {
+    throw new Error("Webhook URL not configured in Settings.");
+  }
+
+  try {
+    const doc = await createInvoiceDoc(invoice, settings, logoUrl);
+
+    // Get PDF as Base64 string
+    const pdfDataUri = doc.output('datauristring');
+    const pdfBase64 = pdfDataUri.split(',')[1];
+
+    const payload = {
+      // Metadata
+      generatedAt: new Date().toISOString(),
+      webhookType: 'INVOICE_SEND',
+
+      // Document
+      filename: `${invoice.invoiceNumber}.pdf`,
+      pdfBase64: pdfBase64,
+
+      // Invoice Details
+      invoice: {
+        id: invoice.id,
+        number: invoice.invoiceNumber,
+        status: invoice.status,
+        dateIssued: invoice.dateIssued,
+        dueDate: invoice.dueDate,
+        currency: 'EUR',
+        notes: invoice.notes,
+
+        // Financials
+        totals: {
+          subtotal: invoice.subtotal,
+          taxRate: invoice.taxRate,
+          taxAmount: invoice.taxAmount,
+          total: invoice.total,
+          amountPaid: invoice.amountPaid,
+          balanceDue: invoice.balanceDue
+        },
+
+        // Line Items
+        items: invoice.items.map(item => ({
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          total: item.total,
+          unit: item.unit
+        }))
+      },
+
+      // Customer Data (Merged from Invoice Snapshot and CRM Record)
+      customer: {
+        id: invoice.customerId,
+        name: invoice.customerName,
+        email: invoice.customerEmail,
+        phone: invoice.customerPhone,
+        address: invoice.customerAddress,
+
+        // Extended CRM Data (if available)
+        city: customer?.city,
+        postalCode: customer?.postalCode,
+        country: customer?.country,
+        companyName: customer?.company,
+        tags: customer?.tags,
+        crmNotes: customer?.notes
+      },
+
+      // Sender Info
+      sender: {
+        company: invoice.company || 'clonmel',
+        taxId: settings.vatNumber
+      }
+    };
+
+    const response = await fetch(settings.webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Webhook failed: ${response.statusText}`);
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Webhook sending failed:", error);
+    throw error;
+  }
 };

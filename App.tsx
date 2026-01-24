@@ -9,11 +9,12 @@ import InvoiceCalendar from './pages/InvoiceCalendar.tsx';
 import CustomerCRM from './pages/CustomerCRM.tsx';
 import Admin from './pages/Admin.tsx';
 import Quotes from './pages/Quotes.tsx';
+import Settings from './pages/Settings.tsx';
 
 const LoginScreen = () => {
   const { login } = useApp();
-  const [email, setEmail] = React.useState('admin@clonmel.com');
-  const [password, setPassword] = React.useState('admin123'); // Pre-filled for demo
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
   const [showForgotPassword, setShowForgotPassword] = React.useState(false);
   const [resetEmail, setResetEmail] = React.useState('');
   const [resetSent, setResetSent] = React.useState(false);
@@ -127,11 +128,7 @@ const LoginScreen = () => {
           </button>
         </div>
 
-        <div className="mt-6 text-center text-xs text-slate-400">
-          <p>Demo Credentials:</p>
-          <p>admin@clonmel.com / admin123 (Admin)</p>
-          <p>john@clonmel.com / user123 (User)</p>
-        </div>
+
       </div>
 
       {/* Forgot Password Modal */}
@@ -219,6 +216,7 @@ const MainContent = () => {
     case 'CUSTOMERS': return <CustomerCRM />;
     case 'PRODUCTS': return <Admin />;
     case 'USERS': return <Admin />; // Admin page handles tabs
+    case 'SETTINGS': return <Settings />;
     default: return <Dashboard />;
   }
 };

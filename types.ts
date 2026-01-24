@@ -29,6 +29,7 @@ export interface Product {
   price: number;
   unit: string; // e.g., 'sqm', 'pcs', 'hour'
   category: string;
+  company?: 'clonmel' | 'mirrorzone';
 }
 
 export interface InvoiceItem {
@@ -65,6 +66,7 @@ export interface Invoice {
   createdBy: string;
   lastReminderSent?: string; // ISO Date of last reminder
   validUntil?: string;
+  paymentDate?: string; // ISO Date when fully paid
 }
 
 export interface Customer {
@@ -108,4 +110,37 @@ export interface Quote {
   updatedAt: string;
 }
 
-export type ViewState = 'LOGIN' | 'DASHBOARD' | 'INVOICES' | 'CREATE_INVOICE' | 'PRODUCTS' | 'USERS' | 'CALENDAR' | 'CUSTOMERS' | 'QUOTES';
+export type ViewState = 'LOGIN' | 'DASHBOARD' | 'INVOICES' | 'CREATE_INVOICE' | 'PRODUCTS' | 'USERS' | 'CALENDAR' | 'CUSTOMERS' | 'QUOTES' | 'SETTINGS';
+
+export interface AppSettings {
+  taxRate: number;
+  companyName: string;
+  companyAddress: string;
+  companyPhone: string;
+  companyEmail: string;
+  companyWebsite: string;
+  vatNumber: string; // Add VAT Number
+  bankName: string;
+  accountName: string;
+  iban: string;
+  bic: string;
+  defaultNotes: string; // Terms & Conditions
+  emailTemplateSubject?: string;
+  emailTemplateBody?: string;
+
+  // MirrorZone Identity
+  mirrorZoneName?: string;
+  mirrorZoneAddress?: string;
+  mirrorZonePhone?: string;
+  mirrorZoneEmail?: string;
+  mirrorZoneWebsite?: string;
+
+  // MirrorZone Bank Details
+  mirrorZoneBankName?: string;
+  mirrorZoneAccountName?: string;
+  mirrorZoneIban?: string;
+  mirrorZoneBic?: string;
+
+  // Integrations
+  webhookUrl?: string; // N8N/Zapier Webhook URL for email sending
+}

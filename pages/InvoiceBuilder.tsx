@@ -1,8 +1,9 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { DatePicker } from '../components/DatePicker';
 import { useApp } from '../contexts/AppContext';
 import { Invoice, InvoiceItem, PaymentStatus, Product } from '../types';
-import { Plus, Trash2, Wand2, Save, Ruler, Calculator, Phone, Search, Check } from 'lucide-react';
+import { Plus, Trash2, Wand2, Save, Ruler, Calculator, Phone, Search, Check, Pencil, X } from 'lucide-react';
 import { generateInvoiceNotes } from '../services/geminiService';
 
 const formatCurrency = (amount: number) => {
@@ -15,7 +16,7 @@ const formatCurrency = (amount: number) => {
 };
 
 const InvoiceBuilder = () => {
-  const { products, addInvoice, updateInvoice, user, setView, customers, editingInvoice, setEditingInvoice } = useApp();
+  const { products, addInvoice, updateInvoice, user, setView, customers, editingInvoice, setEditingInvoice, settings } = useApp();
 
   const [documentType, setDocumentType] = useState<'invoice' | 'quote'>('invoice');
   const [invoiceNumber, setInvoiceNumber] = useState(`INV-${Date.now().toString().slice(-6)}`);
@@ -44,11 +45,13 @@ const InvoiceBuilder = () => {
       }
 
       setDocumentType(editingInvoice.documentType || 'invoice');
+      setTaxRate(editingInvoice.taxRate || settings.taxRate || 23);
     } else {
       const prefix = documentType === 'quote' ? 'QT' : 'INV';
       setInvoiceNumber(`${prefix}-${Date.now().toString().slice(-6)}`);
+      setTaxRate(settings.taxRate || 23);
     }
-  }, [editingInvoice, documentType]);
+  }, [editingInvoice, documentType, settings]);
 
   const [company, setCompany] = useState<'clonmel' | 'mirrorzone'>('clonmel');
   const [customerName, setCustomerName] = useState('');
@@ -58,6 +61,9 @@ const InvoiceBuilder = () => {
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
   const [items, setItems] = useState<InvoiceItem[]>([]);
+  const [taxRate, setTaxRate] = useState(23);
+  const [renamingItemId, setRenamingItemId] = useState<string | null>(null);
+  const [tempRenameText, setTempRenameText] = useState('');
   const [notes, setNotes] = useState('');
   const [loadingAi, setLoadingAi] = useState(false);
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
@@ -87,14 +93,13 @@ const InvoiceBuilder = () => {
 
   // Derived state for the existing items
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-  const taxRate = 23; // Standard VAT
   const taxAmount = (subtotal * taxRate) / 100;
   const total = subtotal + taxAmount;
 
   // Real-time calculation for the CURRENT selection
   const currentProduct = products.find(p => p.id === selectedProductId);
   const currentLineTotal = currentProduct ? currentProduct.price * quantity : 0;
-  const currentLineTotalIncTax = currentLineTotal * 1.23;
+  const currentLineTotalIncTax = currentLineTotal * (1 + (taxRate / 100));
 
   const calculateArea = (newWidth: string, newHeight: string) => {
     const w = parseFloat(newWidth);
@@ -138,6 +143,24 @@ const InvoiceBuilder = () => {
     setItems(items.filter(i => i.id !== id));
   };
 
+  const startRenaming = (item: InvoiceItem) => {
+    setRenamingItemId(item.id);
+    setTempRenameText(item.description);
+  };
+
+  const saveRename = () => {
+    if (renamingItemId) {
+      setItems(items.map(i => i.id === renamingItemId ? { ...i, description: tempRenameText } : i));
+      setRenamingItemId(null);
+      setTempRenameText('');
+    }
+  };
+
+  const cancelRename = () => {
+    setRenamingItemId(null);
+    setTempRenameText('');
+  };
+
   const handleAiNotes = async () => {
     setLoadingAi(true);
     const itemDesc = items.map(i => `${i.quantity}x ${i.description}`).join(', ');
@@ -153,7 +176,7 @@ const InvoiceBuilder = () => {
     }
 
     const newInvoice: Invoice = {
-      id: editingInvoice ? editingInvoice.id : Date.now().toString(),
+      id: (editingInvoice && editingInvoice.id) ? editingInvoice.id : Date.now().toString(),
       invoiceNumber: invoiceNumber,
       customerId: editingInvoice ? editingInvoice.customerId : 'cust_new',
       customerName,
@@ -203,16 +226,16 @@ const InvoiceBuilder = () => {
           <h2 className="text-3xl font-bold text-slate-800 tracking-tight">
             {editingInvoice ? 'Edit' : 'Generate'} {documentType === 'quote' ? 'Quote' : 'Invoice'}
           </h2>
-          <div className="flex gap-2 mt-2">
+          <div className="flex gap-4 mt-4 bg-slate-100 p-1.5 rounded-2xl w-fit">
             <button
               onClick={() => setDocumentType('invoice')}
-              className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${documentType === 'invoice' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'}`}
+              className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-sm ${documentType === 'invoice' ? 'bg-slate-800 text-white shadow-slate-900/10 scale-100' : 'bg-transparent text-slate-400 hover:text-slate-600 scale-95 hover:scale-100'}`}
             >
               Invoice Mode
             </button>
             <button
               onClick={() => setDocumentType('quote')}
-              className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${documentType === 'quote' ? 'bg-brand-500 text-white border-brand-500' : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'}`}
+              className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-sm ${documentType === 'quote' ? 'bg-brand-500 text-white shadow-brand-500/20 scale-100' : 'bg-transparent text-slate-400 hover:text-slate-600 scale-95 hover:scale-100'}`}
             >
               Quote Mode
             </button>
@@ -415,46 +438,17 @@ const InvoiceBuilder = () => {
           <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Issue Date</label>
-                <input
-                  type="date"
-                  className="w-full text-slate-900 bg-white border-2 border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-brand-500 outline-none transition-all"
+                <DatePicker
+                  label="Issue Date"
                   value={invoiceDate}
-                  onChange={e => {
-                    const value = e.target.value;
-                    if (value) {
-                      const year = new Date(value).getFullYear();
-                      // Only prevent years > 4 digits (9999)
-                      // We must allow small years (e.g. 2, 20, 202) to enable typing
-                      if (year <= 9999) {
-                        setInvoiceDate(value);
-                      }
-                    } else {
-                      setInvoiceDate(value);
-                    }
-                  }}
-                  max="9999-12-31"
+                  onChange={setInvoiceDate}
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Due Date</label>
-                <input
-                  type="date"
-                  className="w-full text-slate-900 bg-white border-2 border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-brand-500 outline-none transition-all"
+                <DatePicker
+                  label="Due Date"
                   value={dueDate}
-                  onChange={e => {
-                    const value = e.target.value;
-                    if (value) {
-                      const year = new Date(value).getFullYear();
-                      // Only prevent years > 4 digits (9999)
-                      if (year <= 9999) {
-                        setDueDate(value);
-                      }
-                    } else {
-                      setDueDate(value);
-                    }
-                  }}
-                  max="9999-12-31"
+                  onChange={setDueDate}
                 />
               </div>
             </div>
@@ -488,6 +482,7 @@ const InvoiceBuilder = () => {
                     const prod = products.find(p => p.id === id);
                     if (prod) {
                       setCustomDescription(prod.name);
+                      // Force unit calculation if not mirrorzone, otherwise simple quantity
                       if (prod.unit === 'sqm' && company !== 'mirrorzone') {
                         setShowCalculator(true);
                         setQuantity(0);
@@ -509,22 +504,18 @@ const InvoiceBuilder = () => {
                     </optgroup>
                   ))}
                 </select>
+                <div className="absolute right-0 top-0 -mt-8">
+                  <button
+                    onClick={() => setView('PRODUCTS')}
+                    className="text-[10px] font-bold text-brand-600 hover:text-brand-700 hover:underline flex items-center gap-1"
+                  >
+                    <Plus size={10} />
+                    Manage Products
+                  </button>
+                </div>
               </div>
 
-              {selectedProductId && (
-                <div className="flex-1 w-full">
-                  <label className="block text-xs font-black text-slate-600 mb-3 uppercase tracking-wider">
-                    Renaming (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full border-2 border-slate-200 text-slate-900 rounded-xl px-4 py-4 text-base font-medium focus:outline-none focus:border-brand-500 bg-white shadow-sm"
-                    value={customDescription}
-                    onChange={e => setCustomDescription(e.target.value)}
-                    placeholder="Rename product for invoice..."
-                  />
-                </div>
-              )}
+
 
               {!showCalculator && selectedProductId && (
                 <div className="w-full md:w-32 animate-in zoom-in duration-200">
@@ -633,8 +624,38 @@ const InvoiceBuilder = () => {
                   items.map(item => (
                     <tr key={item.id} className="group hover:bg-slate-50/80 transition-colors">
                       <td className="py-5 px-6">
-                        <div className="text-sm font-bold text-slate-900">{item.description}</div>
-                        <div className="text-[10px] text-brand-500 font-mono font-bold mt-1">{item.productId}</div>
+                        {renamingItemId === item.id ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              autoFocus
+                              className="w-full border-2 border-brand-200 text-slate-900 rounded-lg px-2 py-1 text-sm font-bold focus:outline-none focus:border-brand-500 bg-white"
+                              value={tempRenameText}
+                              onChange={e => setTempRenameText(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') saveRename();
+                                if (e.key === 'Escape') cancelRename();
+                              }}
+                            />
+                            <button onClick={saveRename} className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200">
+                              <Check size={14} />
+                            </button>
+                            <button onClick={cancelRename} className="p-1.5 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200">
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="group/desc relative">
+                            <div className="text-sm font-bold text-slate-900 pr-6">{item.description}</div>
+                            <div className="text-[10px] text-brand-500 font-mono font-bold mt-1">{item.productId}</div>
+                            <button
+                              onClick={() => startRenaming(item)}
+                              className="absolute right-0 top-0 p-1 text-slate-900 hover:text-brand-600 transition-colors"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                          </div>
+                        )}
                       </td>
                       <td className="py-5 px-6 text-center text-sm font-black text-slate-700">{item.quantity}</td>
                       <td className="py-5 px-6 text-right text-sm font-medium text-slate-500">{formatCurrency(item.unitPrice)}</td>
@@ -657,20 +678,11 @@ const InvoiceBuilder = () => {
           {/* Footer / Totals */}
           <div className="flex flex-col md:flex-row justify-between items-start pt-10 mt-6 border-t-2 border-slate-100">
             <div className="w-full md:w-1/2 pr-0 md:pr-12 mb-10 md:mb-0">
-              <div className="flex justify-between items-center mb-4">
-                <label className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                  <Wand2 size={14} className="text-purple-500" />
-                  Custom Notes & Terms
-                </label>
-                <button
-                  onClick={handleAiNotes}
-                  disabled={loadingAi || items.length === 0}
-                  className="px-3 py-1.5 rounded-lg text-[10px] font-black flex items-center space-x-2 text-purple-600 bg-purple-50 hover:bg-purple-600 hover:text-white disabled:opacity-30 transition-all uppercase tracking-widest"
-                >
-                  <Wand2 size={12} />
-                  <span>{loadingAi ? 'Drafting...' : 'Magic AI Suggestion'}</span>
-                </button>
-              </div>
+              <label className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <Wand2 size={14} className="text-purple-500" />
+                Custom Notes & Terms
+              </label>
+
               <textarea
                 className="w-full border-2 border-slate-200 text-slate-900 rounded-2xl px-5 py-4 text-sm h-40 focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 outline-none resize-none shadow-sm transition-all"
                 placeholder="Enter specific project notes or banking instructions..."
@@ -680,30 +692,37 @@ const InvoiceBuilder = () => {
               <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-wider">Note: These details are visible to the customer on the PDF.</p>
             </div>
 
-            <div className="w-full md:w-[360px] bg-slate-900 text-white p-8 rounded-[2.5rem] space-y-6 shadow-2xl relative overflow-hidden">
-              <div className="absolute -top-10 -right-10 h-32 w-32 bg-brand-500/10 rounded-full blur-3xl"></div>
-
+            <div className="w-full md:w-[400px] bg-slate-900 text-white p-8 rounded-[2rem] space-y-6 shadow-2xl relative overflow-hidden">
               <div className="space-y-4 relative z-10">
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400 font-bold uppercase tracking-widest">Subtotal</span>
+                <div className="flex justify-between text-sm items-center border-b border-white/10 pb-4">
+                  <span className="text-slate-400 font-bold uppercase tracking-widest text-xs">Subtotal</span>
                   <span className="font-mono font-bold text-lg">{formatCurrency(subtotal)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-sm items-center pb-2">
                   <div className="flex flex-col">
-                    <span className="text-slate-400 font-bold uppercase tracking-widest">VAT Amount</span>
-                    <span className="text-[10px] font-black text-brand-400">Standard {taxRate}%</span>
+                    <span className="text-slate-400 font-bold uppercase tracking-widest text-xs">VAT Amount</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black text-brand-400">Rate:</span>
+                      <input
+                        type="number"
+                        value={taxRate}
+                        onChange={e => setTaxRate(parseFloat(e.target.value))}
+                        className="w-12 bg-slate-800 border border-slate-700 rounded px-1 py-0.5 text-xs text-white text-center font-bold focus:border-brand-500 outline-none"
+                      />
+                      <span className="text-[10px] font-black text-brand-400">%</span>
+                    </div>
                   </div>
                   <span className="font-mono font-bold text-lg">{formatCurrency(taxAmount)}</span>
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-white/10 relative z-10">
-                <div className="flex justify-between items-center">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-brand-500 uppercase tracking-widest">Total Invoice Value</span>
-                    <span className="text-3xl font-black tracking-tighter">TOTAL DUE</span>
+              <div className="pt-6 border-t-2 border-white/20 relative z-10">
+                <div className="flex flex-col gap-2">
+                  <span className="text-[10px] font-black text-brand-500 uppercase tracking-widest">Total Invoice Value</span>
+                  <div className="flex justify-between items-end">
+                    <span className="text-2xl font-black tracking-tighter text-white">TOTAL DUE</span>
+                    <span className="text-4xl font-black text-brand-500 font-mono leading-none">{formatCurrency(total)}</span>
                   </div>
-                  <span className="text-4xl font-black text-brand-500 font-mono">{formatCurrency(total)}</span>
                 </div>
               </div>
             </div>
