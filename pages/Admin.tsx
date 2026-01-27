@@ -429,13 +429,13 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredProducts.filter(p => (
-                      (p.company === 'mirrorzone') ||
+                      p.company === 'mirrorzone' ||
                       (!p.company && (p.category === 'Mirrors' || String(p.category).toLowerCase().includes('mirror')))
                     )).length === 0 ? (
                       <tr><td colSpan={3} className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">No mirrors found in catalog</td></tr>
                     ) : (
                       filteredProducts.filter(p => (
-                        (p.company === 'mirrorzone') ||
+                        p.company === 'mirrorzone' ||
                         (!p.company && (p.category === 'Mirrors' || String(p.category).toLowerCase().includes('mirror')))
                       )).map(p => (
                         <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
@@ -486,14 +486,12 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredProducts.filter(p => (
-                      (p.company === 'clonmel' || !p.company) &&
-                      !String(p.category).toLowerCase().includes('mirror')
+                      p.company === 'clonmel' || (!p.company && !String(p.category).toLowerCase().includes('mirror'))
                     )).length === 0 ? (
                       <tr><td colSpan={3} className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">No other products found</td></tr>
                     ) : (
                       filteredProducts.filter(p => (
-                        (p.company === 'clonmel' || !p.company) &&
-                        !String(p.category).toLowerCase().includes('mirror')
+                        p.company === 'clonmel' || (!p.company && !String(p.category).toLowerCase().includes('mirror'))
                       )).map(p => (
                         <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
                           <td className="px-8 py-6">

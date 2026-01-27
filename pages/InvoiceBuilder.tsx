@@ -83,8 +83,12 @@ const InvoiceBuilder = () => {
   const groupedProducts = useMemo(() => {
     const groups: Record<string, Product[]> = {};
     const relevantProducts = products.filter(p => {
-      if (company === 'mirrorzone') return p.category === 'Mirrors';
-      return p.category !== 'Mirrors';
+      // Prioritize explicit company assignment
+      if (company === 'mirrorzone') {
+        return p.company === 'mirrorzone' || (!p.company && p.category === 'Mirrors');
+      }
+      // Default to Clonmel
+      return p.company === 'clonmel' || (!p.company && p.category !== 'Mirrors');
     });
 
     relevantProducts.forEach(p => {
