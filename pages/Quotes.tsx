@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { Quote, PaymentStatus } from '../types';
-import { FileText, Plus, Search, Eye, Trash2, CheckCircle, XCircle, Clock, Calendar, Edit, FileOutput } from 'lucide-react';
-import { generatePreviewUrl } from '../services/pdfService';
+import { FileText, Plus, Search, Eye, Trash2, CheckCircle, XCircle, Clock, Calendar, Edit, FileOutput, Download } from 'lucide-react';
+import { generatePreviewUrl, downloadInvoicePDF } from '../services/pdfService';
 
 const Quotes = () => {
     const { user, invoices, setView, setEditingInvoice, settings } = useApp();
@@ -120,12 +120,12 @@ const Quotes = () => {
                 <table className="w-full">
                     <thead className="bg-slate-900 border-b-2 border-slate-800">
                         <tr className="text-white">
-                            <th className="text-left py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Quote Details</th>
-                            <th className="text-left py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Customer</th>
-                            <th className="text-right py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Amount</th>
-                            <th className="text-center py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Valid Until</th>
-                            <th className="text-center py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Status</th>
-                            <th className="text-center py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Actions</th>
+                            <th className="text-left py-4 px-3 md:py-6 md:px-10 text-[10px] font-black uppercase tracking-[0.2em]">Quote Details</th>
+                            <th className="hidden md:table-cell text-left py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Customer</th>
+                            <th className="text-right py-4 px-3 md:py-6 md:px-10 text-[10px] font-black uppercase tracking-[0.2em]">Amount</th>
+                            <th className="hidden md:table-cell text-center py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Valid Until</th>
+                            <th className="text-center py-4 px-3 md:py-6 md:px-10 text-[10px] font-black uppercase tracking-[0.2em]">Status</th>
+                            <th className="text-center py-4 px-3 md:py-6 md:px-10 text-[10px] font-black uppercase tracking-[0.2em]">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -142,35 +142,36 @@ const Quotes = () => {
                         ) : (
                             filteredQuotes.map(quote => (
                                 <tr key={quote.id} className="hover:bg-slate-50/50 transition-colors group">
-                                    <td className="py-6 px-10">
+                                    <td className="py-4 px-3 md:py-6 md:px-10">
                                         <div className="text-lg font-black text-slate-900 tracking-tight">{quote.invoiceNumber}</div>
+                                        <div className="md:hidden font-bold text-slate-700 text-xs mt-1">{quote.customerName}</div>
                                         <div className="text-[10px] font-bold text-slate-400 mt-0.5">
-                                            Issued: {new Date(quote.dateIssued).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                            Issued: {new Date(quote.dateIssued).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                                         </div>
                                         <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">
                                             {quote.company === 'mirrorzone' ? 'Mirrorzone' : 'Clonmel Glass'}
                                         </div>
                                     </td>
-                                    <td className="py-6 px-10">
+                                    <td className="hidden md:table-cell py-6 px-10">
                                         <div className="font-bold text-slate-900">{quote.customerName}</div>
                                         {quote.customerEmail && (
                                             <div className="text-xs text-slate-500 mt-1">{quote.customerEmail}</div>
                                         )}
                                     </td>
-                                    <td className="py-6 px-10 text-right whitespace-nowrap">
+                                    <td className="py-4 px-3 md:py-6 md:px-10 text-right whitespace-nowrap">
                                         <div className="text-sm font-black text-slate-900">{formatCurrency(quote.total)}</div>
                                     </td>
-                                    <td className="py-6 px-10 text-center">
+                                    <td className="hidden md:table-cell py-6 px-10 text-center">
                                         <div className="text-xs font-bold text-slate-600">
                                             {quote.validUntil
                                                 ? new Date(quote.validUntil).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                                                 : '-'}
                                         </div>
                                     </td>
-                                    <td className="py-6 px-10 text-center">
+                                    <td className="py-4 px-3 md:py-6 md:px-10 text-center">
                                         {getStatusBadge(quote.status)}
                                     </td>
-                                    <td className="py-6 px-10">
+                                    <td className="py-4 px-3 md:py-6 md:px-10">
                                         <div className="flex items-center justify-center gap-2 transition-opacity">
                                             <button
                                                 onClick={() => {
@@ -179,33 +180,40 @@ const Quotes = () => {
                                                     setEditingInvoice(quoteAsInvoice);
                                                     setView('CREATE_INVOICE');
                                                 }}
-                                                className="p-3 text-purple-600 bg-purple-50 hover:bg-purple-500 hover:text-white rounded-2xl transition-all shadow-sm"
+                                                className="hidden md:block p-2 md:p-3 text-purple-600 bg-purple-50 hover:bg-purple-500 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm"
                                                 title="Convert to Invoice"
                                             >
-                                                <FileOutput size={18} />
+                                                <FileOutput size={16} />
                                             </button>
                                             <button
                                                 onClick={() => { setEditingInvoice(quote); setView('CREATE_INVOICE'); }}
-                                                className="p-3 text-amber-500 bg-amber-50 hover:bg-amber-500 hover:text-white rounded-2xl transition-all shadow-sm"
+                                                className="hidden md:block p-2 md:p-3 text-amber-500 bg-amber-50 hover:bg-amber-500 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm"
                                                 title="Edit Quote"
                                             >
-                                                <Edit size={18} />
+                                                <Edit size={16} />
                                             </button>
                                             <button
                                                 onClick={async () => {
                                                     const url = await generatePreviewUrl(quote, settings);
                                                     window.open(url, '_blank');
                                                 }}
-                                                className="p-3 text-brand-500 bg-brand-50 hover:bg-brand-500 hover:text-white rounded-2xl transition-all shadow-sm"
+                                                className="p-3 text-brand-600 bg-brand-50 hover:bg-brand-600 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm active:scale-95"
                                                 title="View Quote PDF"
                                             >
-                                                <Eye size={18} />
+                                                <Eye size={20} />
                                             </button>
                                             <button
-                                                className="p-3 text-rose-500 bg-rose-50 hover:bg-rose-500 hover:text-white rounded-2xl transition-all shadow-sm"
+                                                onClick={() => downloadInvoicePDF(quote, settings)}
+                                                className="p-3 text-slate-600 bg-slate-100 hover:bg-slate-600 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm active:scale-95"
+                                                title="Download Quote PDF"
+                                            >
+                                                <Download size={20} />
+                                            </button>
+                                            <button
+                                                className="hidden md:block p-2 md:p-3 text-rose-500 bg-rose-50 hover:bg-rose-500 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm"
                                                 title="Delete Quote"
                                             >
-                                                <Trash2 size={18} />
+                                                <Trash2 size={16} />
                                             </button>
                                         </div>
                                     </td>

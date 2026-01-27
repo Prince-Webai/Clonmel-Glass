@@ -459,7 +459,24 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
 // Exported Actions
 export const downloadInvoicePDF = async (invoice: Invoice, settings: AppSettings, logoUrl?: string) => {
   const doc = await createInvoiceDoc(invoice, settings, logoUrl);
-  doc.save(`${invoice.invoiceNumber}.pdf`);
+
+  // Mobile-friendly download handling
+  if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${invoice.invoiceNumber}.pdf`;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 100);
+  } else {
+    doc.save(`${invoice.invoiceNumber}.pdf`);
+  }
 };
 
 export const generatePreviewUrl = async (invoice: Invoice, settings: AppSettings, logoUrl?: string): Promise<string> => {

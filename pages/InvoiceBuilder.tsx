@@ -62,8 +62,10 @@ const InvoiceBuilder = () => {
   const [dueDate, setDueDate] = useState('');
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [taxRate, setTaxRate] = useState(23);
-  const [renamingItemId, setRenamingItemId] = useState<string | null>(null);
-  const [tempRenameText, setTempRenameText] = useState('');
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editDesc, setEditDesc] = useState('');
+  const [editQty, setEditQty] = useState('');
+  const [editPrice, setEditPrice] = useState('');
   const [notes, setNotes] = useState('');
   const [loadingAi, setLoadingAi] = useState(false);
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
@@ -71,10 +73,11 @@ const InvoiceBuilder = () => {
 
   const [selectedProductId, setSelectedProductId] = useState('');
   const [customDescription, setCustomDescription] = useState('');
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState<number | string>(1);
   const [width, setWidth] = useState<string>('');
   const [height, setHeight] = useState<string>('');
   const [showCalculator, setShowCalculator] = useState(false);
+  const [manualPrice, setManualPrice] = useState<string>(''); // For manual override before adding
 
   // Filter and group products based on selected company
   const groupedProducts = useMemo(() => {
@@ -98,7 +101,10 @@ const InvoiceBuilder = () => {
 
   // Real-time calculation for the CURRENT selection
   const currentProduct = products.find(p => p.id === selectedProductId);
-  const currentLineTotal = currentProduct ? currentProduct.price * quantity : 0;
+  // Use manual price if set, otherwise product price
+  const activePrice = manualPrice ? parseFloat(manualPrice) : (currentProduct ? currentProduct.price : 0);
+  const numericQty = typeof quantity === 'string' ? parseFloat(quantity) || 0 : quantity;
+  const currentLineTotal = activePrice * numericQty;
   const currentLineTotalIncTax = currentLineTotal * (1 + (taxRate / 100));
 
   const calculateArea = (newWidth: string, newHeight: string) => {
@@ -124,9 +130,9 @@ const InvoiceBuilder = () => {
       id: Date.now().toString(),
       productId: currentProduct.id,
       description: finalDesc,
-      quantity: quantity,
-      unitPrice: currentProduct.price,
-      total: currentProduct.price * quantity,
+      quantity: numericQty,
+      unitPrice: activePrice,
+      total: activePrice * numericQty,
       unit: currentProduct.unit
     };
 
@@ -136,6 +142,7 @@ const InvoiceBuilder = () => {
     setQuantity(1);
     setWidth('');
     setHeight('');
+    setManualPrice('');
     setShowCalculator(false);
   };
 
@@ -143,22 +150,30 @@ const InvoiceBuilder = () => {
     setItems(items.filter(i => i.id !== id));
   };
 
-  const startRenaming = (item: InvoiceItem) => {
-    setRenamingItemId(item.id);
-    setTempRenameText(item.description);
+  const startEditing = (item: InvoiceItem) => {
+    setEditingItemId(item.id);
+    setEditDesc(item.description);
+    setEditQty(item.quantity.toString());
+    setEditPrice(item.unitPrice.toString());
   };
 
-  const saveRename = () => {
-    if (renamingItemId) {
-      setItems(items.map(i => i.id === renamingItemId ? { ...i, description: tempRenameText } : i));
-      setRenamingItemId(null);
-      setTempRenameText('');
+  const saveEdit = () => {
+    if (editingItemId) {
+      const q = parseFloat(editQty) || 0;
+      const p = parseFloat(editPrice) || 0;
+      setItems(items.map(i => i.id === editingItemId ? {
+        ...i,
+        description: editDesc,
+        quantity: q,
+        unitPrice: p,
+        total: q * p
+      } : i));
+      setEditingItemId(null);
     }
   };
 
-  const cancelRename = () => {
-    setRenamingItemId(null);
-    setTempRenameText('');
+  const cancelEdit = () => {
+    setEditingItemId(null);
   };
 
   const handleAiNotes = async () => {
@@ -518,15 +533,27 @@ const InvoiceBuilder = () => {
 
 
               {!showCalculator && selectedProductId && (
-                <div className="w-full md:w-32 animate-in zoom-in duration-200">
-                  <label className="block text-xs font-black text-slate-600 mb-3 uppercase tracking-wider">Quantity</label>
-                  <input
-                    type="number"
-                    min="1"
-                    className="w-full border-2 border-slate-200 text-slate-900 rounded-xl px-4 py-4 text-base font-bold focus:outline-none focus:border-brand-500 bg-white shadow-sm"
-                    value={quantity}
-                    onChange={e => setQuantity(Number(e.target.value))}
-                  />
+                <div className="flex gap-4 w-full md:w-auto animate-in zoom-in duration-200">
+                  <div className="w-24">
+                    <label className="block text-xs font-black text-slate-600 mb-3 uppercase tracking-wider">Quantity</label>
+                    <input
+                      type="number"
+                      min="1"
+                      className="w-full border-2 border-slate-200 text-slate-900 rounded-xl px-4 py-4 text-base font-bold focus:outline-none focus:border-brand-500 bg-white shadow-sm"
+                      value={quantity}
+                      onChange={e => setQuantity(e.target.value)}
+                    />
+                  </div>
+                  <div className="w-32">
+                    <label className="block text-xs font-black text-slate-600 mb-3 uppercase tracking-wider whitespace-nowrap">Price (€) <span className="text-[9px] text-slate-400 font-bold normal-case ml-1">(Override)</span></label>
+                    <input
+                      type="number"
+                      placeholder={currentProduct ? currentProduct.price.toFixed(2) : '0.00'}
+                      className="w-full border-2 border-slate-200 text-slate-900 rounded-xl px-4 py-4 text-base font-bold focus:outline-none focus:border-brand-500 bg-white shadow-sm placeholder:text-slate-300"
+                      value={manualPrice}
+                      onChange={e => setManualPrice(e.target.value)}
+                    />
+                  </div>
                 </div>
               )}
 
@@ -624,46 +651,74 @@ const InvoiceBuilder = () => {
                   items.map(item => (
                     <tr key={item.id} className="group hover:bg-slate-50/80 transition-colors">
                       <td className="py-5 px-6">
-                        {renamingItemId === item.id ? (
+                        {editingItemId === item.id ? (
                           <div className="flex items-center gap-2">
                             <input
                               type="text"
                               autoFocus
                               className="w-full border-2 border-brand-200 text-slate-900 rounded-lg px-2 py-1 text-sm font-bold focus:outline-none focus:border-brand-500 bg-white"
-                              value={tempRenameText}
-                              onChange={e => setTempRenameText(e.target.value)}
+                              value={editDesc}
+                              onChange={e => setEditDesc(e.target.value)}
                               onKeyDown={e => {
-                                if (e.key === 'Enter') saveRename();
-                                if (e.key === 'Escape') cancelRename();
+                                if (e.key === 'Enter') saveEdit();
+                                if (e.key === 'Escape') cancelEdit();
                               }}
                             />
-                            <button onClick={saveRename} className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200">
+                          </div>
+                        ) : (
+                          <div className="group/desc relative pr-8">
+                            <div className="text-sm font-bold text-slate-900">{item.description}</div>
+                            <div className="text-[10px] text-brand-500 font-mono font-bold mt-1">{item.productId}</div>
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-5 px-6 text-center text-sm font-black text-slate-700">
+                        {editingItemId === item.id ? (
+                          <input
+                            type="number"
+                            className="w-20 text-center border-2 border-brand-200 rounded-lg px-2 py-1 text-sm font-bold focus:outline-none focus:border-brand-500 bg-white"
+                            value={editQty}
+                            onChange={e => setEditQty(e.target.value)}
+                          />
+                        ) : (
+                          item.quantity
+                        )}
+                      </td>
+                      <td className="py-5 px-6 text-right text-sm font-medium text-slate-500">
+                        {editingItemId === item.id ? (
+                          <input
+                            type="number"
+                            className="w-24 text-right border-2 border-brand-200 rounded-lg px-2 py-1 text-sm font-bold focus:outline-none focus:border-brand-500 bg-white"
+                            value={editPrice}
+                            onChange={e => setEditPrice(e.target.value)}
+                          />
+                        ) : (
+                          formatCurrency(item.unitPrice)
+                        )}
+                      </td>
+                      <td className="py-5 px-6 text-right text-base font-black text-slate-900">
+                        {formatCurrency(item.total)}
+                      </td>
+                      <td className="py-5 px-6 text-right">
+                        {editingItemId === item.id ? (
+                          <div className="flex justify-end gap-1">
+                            <button onClick={saveEdit} className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200">
                               <Check size={14} />
                             </button>
-                            <button onClick={cancelRename} className="p-1.5 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200">
+                            <button onClick={cancelEdit} className="p-1.5 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200">
                               <X size={14} />
                             </button>
                           </div>
                         ) : (
-                          <div className="group/desc relative">
-                            <div className="text-sm font-bold text-slate-900 pr-6">{item.description}</div>
-                            <div className="text-[10px] text-brand-500 font-mono font-bold mt-1">{item.productId}</div>
-                            <button
-                              onClick={() => startRenaming(item)}
-                              className="absolute right-0 top-0 p-1 text-slate-900 hover:text-brand-600 transition-colors"
-                            >
-                              <Pencil size={14} />
+                          <div className="flex justify-end gap-1">
+                            <button onClick={() => startEditing(item)} className="p-2 text-slate-300 hover:text-brand-600 hover:bg-brand-50 rounded-xl transition-all">
+                              <Pencil size={18} />
+                            </button>
+                            <button onClick={() => removeItem(item.id)} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
+                              <Trash2 size={18} />
                             </button>
                           </div>
                         )}
-                      </td>
-                      <td className="py-5 px-6 text-center text-sm font-black text-slate-700">{item.quantity}</td>
-                      <td className="py-5 px-6 text-right text-sm font-medium text-slate-500">{formatCurrency(item.unitPrice)}</td>
-                      <td className="py-5 px-6 text-right text-base font-black text-slate-900">{formatCurrency(item.total)}</td>
-                      <td className="py-5 px-6 text-right">
-                        <button onClick={() => removeItem(item.id)} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
-                          <Trash2 size={18} />
-                        </button>
                       </td>
                     </tr>
                   ))

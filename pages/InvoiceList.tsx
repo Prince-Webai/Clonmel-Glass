@@ -198,12 +198,12 @@ const InvoiceList = () => {
           <table className="w-full">
             <thead className="bg-slate-50/50 border-b-2 border-slate-100">
               <tr>
-                <th className="text-left py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Customer / Lineage</th>
-                <th className="text-right py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Financials</th>
-                <th className="text-left py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] w-72">Settlement Depth</th>
-                <th className="text-center py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Lifecycle</th>
-                <th className="text-center py-6 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">PDF</th>
-                <th className="text-center py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Ops</th>
+                <th className="text-left py-4 px-3 md:py-6 md:px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Customer / Lineage</th>
+                <th className="text-right py-4 px-3 md:py-6 md:px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Financials</th>
+                <th className="hidden md:table-cell text-left py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] w-72">Settlement Depth</th>
+                <th className="hidden md:table-cell text-center py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Lifecycle</th>
+                <th className="text-center py-4 px-3 md:py-6 md:px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">PDF</th>
+                <th className="text-center py-4 px-3 md:py-6 md:px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Ops</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -215,53 +215,53 @@ const InvoiceList = () => {
                     ref={(el) => invoiceRefs.current[inv.id] = el}
                     className="hover:bg-slate-50/50 transition-colors group"
                   >
-                    <td className="py-6 px-10">
-                      <div className="text-lg font-black text-slate-900 tracking-tight">{inv.customerName}</div>
+                    <td className="py-4 px-3 md:py-6 md:px-10">
+                      <div className="text-sm md:text-lg font-black text-slate-900 tracking-tight">{inv.customerName}</div>
                       <div className="text-[10px] font-bold text-slate-400 mt-0.5">{inv.invoiceNumber}</div>
                       <div className="flex items-center gap-2 mt-2">
-                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                        <span className="hidden md:inline text-[9px] font-black text-slate-500 uppercase tracking-widest">
                           {inv.company === 'mirrorzone' ? 'Mirrorzone' : 'Clonmel Glass'}
                         </span>
                         <span className="text-[9px] font-black text-slate-700 uppercase tracking-widest bg-slate-200 px-2 py-0.5 rounded">
-                          Issued: {new Date(inv.dateIssued).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          {new Date(inv.dateIssued).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                         </span>
                         {inv.lastReminderSent && (
-                          <span className="flex items-center gap-1 text-[9px] font-black text-brand-500 uppercase tracking-widest">
+                          <span className="hidden md:flex items-center gap-1 text-[9px] font-black text-brand-500 uppercase tracking-widest">
                             <BellRing size={8} /> Followed Up
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="py-6 px-10 text-right whitespace-nowrap">
+                    <td className="py-4 px-3 md:py-6 md:px-10 text-right whitespace-nowrap">
                       <div className="text-sm font-black text-slate-900">{formatCurrency(inv.total)}</div>
-                      <div className="text-[10px] font-bold text-rose-500 mt-0.5">Balance: {formatCurrency(inv.balanceDue)}</div>
+                      <div className="text-[10px] font-bold text-rose-500 mt-0.5">Bal: {formatCurrency(inv.balanceDue)}</div>
                     </td>
-                    <td className="py-6 px-10 align-middle">
+                    <td className="hidden md:table-cell py-6 px-10 align-middle">
                       <ProgressBar paid={inv.amountPaid || 0} total={inv.total} />
                     </td>
-                    <td className="py-6 px-10 text-center align-middle">
+                    <td className="hidden md:table-cell py-6 px-10 text-center align-middle">
                       <StatusBadge status={inv.status} overdue={isOverdue} />
                     </td>
-                    <td className="py-6 px-6 text-center align-middle">
+                    <td className="py-4 px-3 md:py-6 md:px-6 text-center align-middle">
                       <div className="flex items-center justify-center space-x-1">
-                        <button onClick={() => handlePreview(inv)} className="p-3 text-brand-600 bg-brand-50 hover:bg-brand-600 hover:text-white rounded-2xl transition-all shadow-sm" title="Preview PDF">
-                          <Eye size={18} />
+                        <button onClick={() => handlePreview(inv)} className="p-3 text-brand-600 bg-brand-50 hover:bg-brand-600 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm active:scale-95" title="Preview PDF">
+                          <Eye size={20} />
                         </button>
-                        <button onClick={() => handleDownload(inv)} className="p-3 text-slate-600 bg-slate-100 hover:bg-slate-600 hover:text-white rounded-2xl transition-all shadow-sm" title="Download PDF">
-                          <Download size={18} />
+                        <button onClick={() => handleDownload(inv)} className="p-3 text-slate-600 bg-slate-100 hover:bg-slate-600 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm active:scale-95" title="Download PDF">
+                          <Download size={20} />
                         </button>
-                        <button onClick={() => handleSendEmail(inv)} className="p-3 text-sky-600 bg-sky-50 hover:bg-sky-600 hover:text-white rounded-2xl transition-all shadow-sm" title="Send via Webhook">
-                          <Mail size={18} />
+                        <button onClick={() => handleSendEmail(inv)} className="p-2 md:p-3 text-sky-600 bg-sky-50 hover:bg-sky-600 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm" title="Send via Webhook">
+                          <Mail size={16} />
                         </button>
-                        <button onClick={() => { setEditingInvoice(inv); setView('CREATE_INVOICE'); }} className="p-3 text-amber-600 bg-amber-50 hover:bg-amber-500 hover:text-white rounded-2xl transition-all shadow-sm" title="Edit Invoice">
-                          <Edit size={18} />
+                        <button onClick={() => { setEditingInvoice(inv); setView('CREATE_INVOICE'); }} className="hidden md:block p-2 md:p-3 text-amber-600 bg-amber-50 hover:bg-amber-500 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm" title="Edit Invoice">
+                          <Edit size={16} />
                         </button>
-                        <button onClick={() => handleDelete(inv)} className="p-3 text-rose-600 bg-rose-50 hover:bg-rose-600 hover:text-white rounded-2xl transition-all shadow-sm" title="Delete Invoice">
-                          <Trash2 size={18} />
+                        <button onClick={() => handleDelete(inv)} className="hidden md:block p-2 md:p-3 text-rose-600 bg-rose-50 hover:bg-rose-600 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm" title="Delete Invoice">
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     </td>
-                    <td className="py-6 px-10 text-center align-middle">
+                    <td className="py-4 px-3 md:py-6 md:px-10 text-center align-middle">
                       {editingPaymentId === inv.id ? (
                         <div className="flex flex-col gap-2 bg-white border-2 border-emerald-100 p-4 rounded-3xl shadow-2xl animate-in zoom-in-95 duration-200 absolute right-10 z-10 w-80">
                           <div className="flex justify-between items-center mb-2">
