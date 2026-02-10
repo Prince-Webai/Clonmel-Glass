@@ -268,7 +268,7 @@ const InvoiceBuilder = () => {
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xl border border-slate-200">
         {/* Company Selection Banner */}
         <div className={`p-6 border-b-4 ${company === 'clonmel'
           ? 'bg-gradient-to-r from-red-600 to-red-700 border-red-800'
@@ -468,6 +468,7 @@ const InvoiceBuilder = () => {
                   label="Due Date"
                   value={dueDate}
                   onChange={setDueDate}
+                  align="right"
                 />
               </div>
             </div>

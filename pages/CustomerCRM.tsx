@@ -18,7 +18,9 @@ const CustomerCRM = () => {
         phone: '',
 
         address: '',
+        addressLine2: '',
         city: '',
+        region: '',
         postalCode: '',
         country: 'Ireland',
         company: '',
@@ -38,15 +40,12 @@ const CustomerCRM = () => {
         const lines = text.split(/\r?\n/);
         if (lines.length < 2) return [];
 
-        // Simple CSV parser (can be improved or replaced with a library if needed)
-        // Checks for headers to map columns dynamically
         const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
 
         const result = [];
         for (let i = 1; i < lines.length; i++) {
             if (!lines[i].trim()) continue;
 
-            // Handle quotes properly for basic CSV
             const row: string[] = [];
             let inQuote = false;
             let currentCell = '';
@@ -62,7 +61,7 @@ const CustomerCRM = () => {
             }
             row.push(currentCell.replace(/^"|"$/g, '').trim());
 
-            if (row.length < 2) continue; // Skip empty/malformed rows
+            if (row.length < 2) continue;
 
             const entry: any = {};
             headers.forEach((h, idx) => {
@@ -71,15 +70,16 @@ const CustomerCRM = () => {
                 else if (h.includes('email')) entry.email = val;
                 else if (h.includes('phone') || h.includes('tel')) entry.phone = val;
                 else if (h.includes('city')) entry.city = val;
-                else if (h.includes('address')) entry.address = val;
+                else if (h.includes('address') && (h.includes('2') || h.includes('line 2'))) entry.addressLine2 = val;
+                else if (h.includes('address') || h.includes('street')) entry.address = val;
+                else if (h.includes('region') || h.includes('county') || h.includes('state') || h.includes('province')) entry.region = val;
                 else if (h.includes('company')) entry.company = val;
                 else if (h.includes('code') || h.includes('zip') || h.includes('post')) entry.postalCode = val;
                 else if (h.includes('country')) entry.country = val;
             });
 
-            // Fallbacks
-            if (!entry.name && row[0]) entry.name = row[0]; // Assume first column is name
-            if (!entry.email && row[1] && row[1].includes('@')) entry.email = row[1]; // Assume second is email if it looks like one
+            if (!entry.name && row[0]) entry.name = row[0];
+            if (!entry.email && row[1] && row[1].includes('@')) entry.email = row[1];
 
             if (entry.name) result.push(entry);
         }
@@ -143,10 +143,7 @@ const CustomerCRM = () => {
         reader.readAsText(file);
     };
 
-    // ... (existing handlers)
-
-    // And update the header part
-
+    // ... (skipping parseCSV implementation details in this tool call thought, will just update formData and handleOpenModal below)
 
     const handleOpenModal = (customer?: Customer) => {
         if (customer) {
@@ -156,7 +153,9 @@ const CustomerCRM = () => {
                 email: customer.email,
                 phone: customer.phone,
                 address: customer.address || '',
+                addressLine2: customer.addressLine2 || '',
                 city: customer.city || '',
+                region: customer.region || '',
                 postalCode: customer.postalCode || '',
                 country: customer.country || 'Ireland',
                 company: customer.company || '',
@@ -170,7 +169,9 @@ const CustomerCRM = () => {
                 email: '',
                 phone: '',
                 address: '',
+                addressLine2: '',
                 city: '',
+                region: '',
                 postalCode: '',
                 country: 'Ireland',
                 company: '',
@@ -454,6 +455,17 @@ const CustomerCRM = () => {
                                     />
                                 </div>
 
+                                <div className="md:col-span-2">
+                                    <label className="block text-xs font-black text-slate-600 mb-2 uppercase tracking-wider">Address Line 2</label>
+                                    <input
+                                        type="text"
+                                        value={formData.addressLine2}
+                                        onChange={(e) => setFormData({ ...formData, addressLine2: e.target.value })}
+                                        className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition-all"
+                                        placeholder="Suite, Unit, Building, etc."
+                                    />
+                                </div>
+
                                 <div>
                                     <label className="block text-xs font-black text-slate-600 mb-2 uppercase tracking-wider">City</label>
                                     <input
@@ -462,6 +474,17 @@ const CustomerCRM = () => {
                                         onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                                         className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition-all"
                                         placeholder="Clonmel"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-black text-slate-600 mb-2 uppercase tracking-wider">Region / County</label>
+                                    <input
+                                        type="text"
+                                        value={formData.region}
+                                        onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+                                        className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition-all"
+                                        placeholder="Co. Tipperary"
                                     />
                                 </div>
 

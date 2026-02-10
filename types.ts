@@ -65,6 +65,7 @@ export interface Invoice {
   notes?: string;
   createdBy: string;
   lastReminderSent?: string; // ISO Date of last reminder
+  reminderCount?: number; // Number of reminders sent
   validUntil?: string;
   paymentDate?: string; // ISO Date when fully paid
 }
@@ -76,7 +77,9 @@ export interface Customer {
   phone: string;
 
   address?: string;
+  addressLine2?: string;
   city?: string;
+  region?: string;
   postalCode?: string;
   country?: string;
   company?: string;
@@ -143,4 +146,5 @@ export interface AppSettings {
 
   // Integrations
   webhookUrl?: string; // N8N/Zapier Webhook URL for email sending
+  xeroWebhookUrl?: string; // Webhook for Xero Transfer
 }

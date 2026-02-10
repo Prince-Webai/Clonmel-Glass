@@ -73,6 +73,103 @@ const Admin = () => {
     });
   }, [products, productSearch, categoryFilter]);
 
+  // Product Import State
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const parseProductCSV = (text: string) => {
+    const lines = text.split(/\r?\n/);
+    if (lines.length < 2) return [];
+
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
+
+    const result = [];
+    for (let i = 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+
+      const row: string[] = [];
+      let inQuote = false;
+      let currentCell = '';
+      for (let char of lines[i]) {
+        if (char === '"') {
+          inQuote = !inQuote;
+        } else if (char === ',' && !inQuote) {
+          row.push(currentCell.replace(/^"|"$/g, '').trim());
+          currentCell = '';
+        } else {
+          currentCell += char;
+        }
+      }
+      row.push(currentCell.replace(/^"|"$/g, '').trim());
+
+      if (row.length < 2) continue;
+
+      const entry: any = {};
+      headers.forEach((h, idx) => {
+        const val = row[idx] || '';
+        if (h.includes('name') || h.includes('title')) entry.name = val;
+        else if (h.includes('price') || h.includes('cost')) entry.price = val;
+        else if (h.includes('unit')) entry.unit = val;
+        else if (h.includes('category')) entry.category = val;
+        else if (h.includes('desc')) entry.description = val;
+        else if (h.includes('code') || h.includes('sku')) entry.sku = val; // Store SKU in description or similar if needed, or ignore
+      });
+
+      if (entry.name && entry.price) result.push(entry);
+    }
+    return result;
+  };
+
+  const handleProductUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    const reader = new FileReader();
+
+    reader.onload = async (evt) => {
+      try {
+        const text = evt.target?.result as string;
+        const importedProducts = parseProductCSV(text);
+
+        if (importedProducts.length === 0) {
+          alert('No valid products found. Ensure CSV has Name and Price columns.');
+          return;
+        }
+
+        if (confirm(`Found ${importedProducts.length} products. Import to ${activeCompany === 'mirrorzone' ? 'Mirrorzone' : 'Clonmel Glass'}?`)) {
+          let importedCount = 0;
+          for (const p of importedProducts) {
+            try {
+              const newProduct: Product = {
+                id: `P-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                name: p.name || 'Unknown Product',
+                price: parseFloat(p.price) || 0,
+                unit: p.unit || (activeCompany === 'mirrorzone' ? 'pcs' : 'sqm'),
+                category: p.category || (activeCompany === 'mirrorzone' ? 'Mirrors' : 'Clear Glass'),
+                description: p.description || `Imported ${activeCompany} Product`,
+                company: activeCompany
+              };
+              await addProduct(newProduct);
+              importedCount++;
+            } catch (err) {
+              console.error('Failed to import product:', p, err);
+            }
+          }
+          alert(`Successfully imported ${importedCount} products.`);
+        }
+      } catch (err) {
+        console.error('Import error:', err);
+        alert('Failed to process CSV file.');
+      } finally {
+        setIsImporting(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+
+    reader.readAsText(file);
+  };
+
   if (currentUser?.role !== UserRole.ADMIN) {
     return <div className="p-20 text-center text-slate-500 font-black uppercase tracking-widest">Access Restricted to Administrators</div>;
   }
@@ -396,11 +493,28 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
           </div>
 
           <div className="space-y-6">
-            <div className="bg-white p-5 rounded-3xl border-2 border-slate-100 flex gap-5 shadow-sm">
+            <div className="bg-white p-5 rounded-3xl border-2 border-slate-100 flex gap-5 shadow-sm items-center">
               <div className="relative flex-1">
                 <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input type="text" placeholder={`Search ${activeCompany === 'mirrorzone' ? 'mirrors' : 'glass'}...`} value={productSearch} onChange={e => setProductSearch(e.target.value)} className="w-full pl-14 pr-6 py-4 bg-white border-2 border-slate-200 text-slate-900 rounded-2xl text-sm font-bold focus:border-brand-500 outline-none transition-all" />
               </div>
+
+              <input
+                type="file"
+                accept=".csv"
+                className="hidden"
+                ref={fileInputRef}
+                onChange={handleProductUpload}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isImporting}
+                className="flex items-center gap-2 px-6 py-4 bg-slate-50 text-slate-600 border-2 border-slate-100 rounded-2xl hover:bg-slate-100 transition-all font-black text-[10px] uppercase tracking-widest whitespace-nowrap"
+              >
+                {isImporting ? <RefreshCcw className="animate-spin" size={16} /> : <Upload size={16} />}
+                Import CSV
+              </button>
+
               {activeCompany !== 'mirrorzone' && (
                 <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="bg-white text-slate-900 border-2 border-slate-200 rounded-2xl px-6 py-4 text-[10px] font-black uppercase tracking-widest outline-none focus:border-brand-500">
                   {categories.filter(c => c !== 'Mirrors').map(c => <option key={c} value={c}>{c}</option>)}

@@ -356,6 +356,19 @@ const Settings = () => {
                                 System will POST JSON data + PDF Base64 to this URL when sending requested.
                             </p>
                         </div>
+                        <div>
+                            <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Xero Integration Webhook</label>
+                            <input
+                                name="xeroWebhookUrl"
+                                value={formData.xeroWebhookUrl || ''}
+                                onChange={handleChange}
+                                placeholder="https://hooks.zapier.com/..."
+                                className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-mono text-sm focus:border-brand-500 outline-none transition-colors"
+                            />
+                            <p className="text-[10px] text-slate-400 mt-2">
+                                System will POST full invoice JSON to this URL when "Transfer to Xero" is clicked.
+                            </p>
+                        </div>
                     </div>
                 </div>
 

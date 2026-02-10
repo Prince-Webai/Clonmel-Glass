@@ -1,9 +1,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../contexts/AppContext';
+import { formatDate } from '../utils';
 import { Invoice, PaymentStatus } from '../types';
-import { Search, CreditCard, Download, Eye, X, Check, Euro, BellRing, Clock, CheckCircle2, AlertCircle, Trash2, Edit, Mail } from 'lucide-react';
+import { Search, CreditCard, Download, Eye, X, Check, Euro, BellRing, Clock, CheckCircle2, AlertCircle, Trash2, Edit, Mail, ArrowRightCircle } from 'lucide-react';
 import { downloadInvoicePDF, generatePreviewUrl, sendInvoiceViaWebhook } from '../services/pdfService';
+import { sendToXero } from '../services/integrationService';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -62,7 +64,7 @@ const ProgressBar = ({ paid, total }: { paid: number, total: number }) => {
 };
 
 const InvoiceList = () => {
-  const { invoices, updateInvoice, deleteInvoice, setView, companyLogo, selectedInvoiceId, setSelectedInvoiceId, setEditingInvoice, settings, customers } = useApp();
+  const { invoices, updateInvoice, deleteInvoice, setView, companyLogo, selectedInvoiceId, setSelectedInvoiceId, setEditingInvoice, settings, customers, user } = useApp();
   const [filter, setFilter] = useState('');
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<string>('');
@@ -126,10 +128,42 @@ const InvoiceList = () => {
       try {
         const fullCustomer = customers.find(c => c.id === inv.customerId);
         await sendInvoiceViaWebhook(inv, settings, companyLogo, fullCustomer);
+
+        // Update local state - Manual reminders don't strictly count towards the auto-limit, 
+        // but we track them anyway. Auto-limit logic will check count < 4.
+        const currentCount = inv.reminderCount || 0;
+        updateInvoice({
+          ...inv,
+          lastReminderSent: new Date().toISOString(),
+          reminderCount: currentCount + 1
+        });
+
         alert("Invoice sent successfully!");
       } catch (e) {
         console.error(e);
         alert("Failed to send invoice. Check settings and console.");
+      }
+    }
+  };
+
+  const handleXeroTransfer = async (inv: Invoice) => {
+    if (!settings.xeroWebhookUrl) {
+      alert("Please configure Xero Webhook URL in Settings -> Integrations first.");
+      return;
+    }
+
+    if (window.confirm(`Transfer invoice ${inv.invoiceNumber} data to Xero?`)) {
+      try {
+        const fullCustomer = customers.find(c => c.id === inv.customerId);
+        const success = await sendToXero(inv, fullCustomer, settings, user);
+        if (success) {
+          alert("Invoice data transferred to Xero successfully!");
+        } else {
+          alert("Failed to transfer. Webhook returned an error.");
+        }
+      } catch (e) {
+        console.error(e);
+        alert("Failed to transfer to Xero. Check settings and console.");
       }
     }
   };
@@ -222,14 +256,12 @@ const InvoiceList = () => {
                         <span className="hidden md:inline text-[9px] font-black text-slate-500 uppercase tracking-widest">
                           {inv.company === 'mirrorzone' ? 'Mirrorzone' : 'Clonmel Glass'}
                         </span>
-                        <span className="text-[9px] font-black text-slate-700 uppercase tracking-widest bg-slate-200 px-2 py-0.5 rounded">
-                          {new Date(inv.dateIssued).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                        </span>
-                        {inv.lastReminderSent && (
-                          <span className="hidden md:flex items-center gap-1 text-[9px] font-black text-brand-500 uppercase tracking-widest">
-                            <BellRing size={8} /> Followed Up
+                        <div className="flex items-center gap-1.5 text-slate-400">
+                          <Clock size={10} strokeWidth={2.5} />
+                          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                            {formatDate(inv.dateIssued)}
                           </span>
-                        )}
+                        </div>
                       </div>
                     </td>
                     <td className="py-4 px-3 md:py-6 md:px-10 text-right whitespace-nowrap">
@@ -240,7 +272,15 @@ const InvoiceList = () => {
                       <ProgressBar paid={inv.amountPaid || 0} total={inv.total} />
                     </td>
                     <td className="hidden md:table-cell py-6 px-10 text-center align-middle">
-                      <StatusBadge status={inv.status} overdue={isOverdue} />
+                      <div className="flex flex-col items-center gap-1.5">
+                        <StatusBadge status={inv.status} overdue={isOverdue} />
+                        {inv.lastReminderSent && (
+                          <div className="flex items-center gap-1 text-[9px] font-black text-brand-500 uppercase tracking-widest bg-brand-50 px-2 py-1 rounded-md" title={`Last reminder: ${formatDate(inv.lastReminderSent)}`}>
+                            <BellRing size={10} />
+                            <span>Follow-up ({inv.reminderCount || 1})</span>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="py-4 px-3 md:py-6 md:px-6 text-center align-middle">
                       <div className="flex items-center justify-center space-x-1">
@@ -253,6 +293,11 @@ const InvoiceList = () => {
                         <button onClick={() => handleSendEmail(inv)} className="p-2 md:p-3 text-sky-600 bg-sky-50 hover:bg-sky-600 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm" title="Send via Webhook">
                           <Mail size={16} />
                         </button>
+                        {inv.status === PaymentStatus.PAID && (
+                          <button onClick={() => handleXeroTransfer(inv)} className="p-2 md:p-3 text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm" title="Transfer to Xero">
+                            <ArrowRightCircle size={16} />
+                          </button>
+                        )}
                         <button onClick={() => { setEditingInvoice(inv); setView('CREATE_INVOICE'); }} className="hidden md:block p-2 md:p-3 text-amber-600 bg-amber-50 hover:bg-amber-500 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm" title="Edit Invoice">
                           <Edit size={16} />
                         </button>

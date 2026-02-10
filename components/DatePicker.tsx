@@ -1,15 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 
-interface DatePickerProps {
+export interface DatePickerProps {
     label?: string;
     value: string;
     onChange: (date: string) => void;
     min?: string;
     max?: string;
+    align?: 'left' | 'right';
 }
 
-export const DatePicker: React.FC<DatePickerProps> = ({ label, value, onChange, min, max }) => {
+export const DatePicker: React.FC<DatePickerProps> = ({ label, value, onChange, min, max, align = 'left' }) => {
     const [showPicker, setShowPicker] = useState(false);
     const [currentDate, setCurrentDate] = useState(new Date()); // For navigation
     const containerRef = useRef<HTMLDivElement>(null);
@@ -41,11 +42,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({ label, value, onChange, 
 
     const firstDayOfMonth = (date: Date) => {
         const day = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
-        return day === 0 ? 6 : day - 1; // Adjust for Monday start (0=Mon, 6=Sun) or standard (0=Sun)?? 
-        // Variable InvoiceBuilder used 'en-US' locale usually, let's stick to standard Sunday start (0) for simplicity in grid, 
-        // or typically business apps prefer Monday. Let's start with Sunday for standard JS getDay().
-        // Actually, let's use standard Sunday start for the grid.
-        // Sunday = 0
+        return day === 0 ? 6 : day - 1;
     };
 
     const getFirstDayIndex = (date: Date) => {
@@ -113,7 +110,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({ label, value, onChange, 
             </div>
 
             {showPicker && (
-                <div className="absolute z-50 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 p-4 w-[300px] left-0 animate-in fade-in zoom-in-95 duration-200">
+                <div className={`absolute z-50 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 p-4 w-[300px] ${align === 'right' ? 'right-0' : 'left-0'} animate-in fade-in zoom-in-95 duration-200`}>
                     <div className="flex items-center justify-between mb-4">
                         <button
                             onClick={() => navigateMonth(-1)}
