@@ -5,7 +5,7 @@ import { FileText, Plus, Search, Eye, Trash2, CheckCircle, XCircle, Clock, Calen
 import { generatePreviewUrl, downloadInvoicePDF } from '../services/pdfService';
 
 const Quotes = () => {
-    const { user, invoices, setView, setEditingInvoice, settings } = useApp();
+    const { user, invoices, setView, setEditingInvoice, settings, deleteInvoice } = useApp();
     const [searchTerm, setSearchTerm] = useState('');
 
     const filteredQuotes = invoices.filter(inv =>
@@ -210,6 +210,11 @@ const Quotes = () => {
                                                 <Download size={20} />
                                             </button>
                                             <button
+                                                onClick={() => {
+                                                    if (window.confirm('Are you sure you want to delete this quote?')) {
+                                                        deleteInvoice(quote.id);
+                                                    }
+                                                }}
                                                 className="hidden md:block p-2 md:p-3 text-rose-500 bg-rose-50 hover:bg-rose-500 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm"
                                                 title="Delete Quote"
                                             >

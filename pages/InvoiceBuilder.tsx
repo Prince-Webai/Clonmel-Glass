@@ -188,54 +188,64 @@ const InvoiceBuilder = () => {
     setLoadingAi(false);
   };
 
-  const saveInvoice = () => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const saveInvoice = async () => {
     if (!customerName || items.length === 0) {
       alert("Please fill in customer details and add at least one item.");
       return;
     }
 
-    const newInvoice: Invoice = {
-      id: (editingInvoice && editingInvoice.id) ? editingInvoice.id : Date.now().toString(),
-      invoiceNumber: invoiceNumber,
-      customerId: editingInvoice ? editingInvoice.customerId : 'cust_new',
-      customerName,
-      customerEmail,
-      customerPhone,
-      customerAddress,
-      company,
-      documentType,
-      items,
-      subtotal,
-      taxRate,
-      taxAmount,
-      total,
-      amountPaid: editingInvoice ? editingInvoice.amountPaid : 0,
-      balanceDue: total - (editingInvoice ? editingInvoice.amountPaid : 0),
-      status: editingInvoice ? editingInvoice.status : (documentType === 'quote' ? 'PENDING' : PaymentStatus.UNPAID),
-      dateIssued: invoiceDate,
-      dueDate: dueDate || invoiceDate,
-      notes,
-      createdBy: user?.id || 'unknown',
-      validUntil: documentType === 'quote'
-        ? (editingInvoice?.validUntil || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString())
-        : undefined
-    };
+    setIsSaving(true);
+    try {
+      const newInvoice: Invoice = {
+        id: (editingInvoice && editingInvoice.id) ? editingInvoice.id : Date.now().toString(),
+        invoiceNumber: invoiceNumber,
+        customerId: editingInvoice ? editingInvoice.customerId : 'cust_new',
+        customerName,
+        customerEmail,
+        customerPhone,
+        customerAddress,
+        company,
+        documentType,
+        items,
+        subtotal,
+        taxRate,
+        taxAmount,
+        total,
+        amountPaid: editingInvoice ? editingInvoice.amountPaid : 0,
+        balanceDue: total - (editingInvoice ? editingInvoice.amountPaid : 0),
+        status: editingInvoice ? editingInvoice.status : (documentType === 'quote' ? 'PENDING' : PaymentStatus.UNPAID),
+        dateIssued: invoiceDate,
+        dueDate: dueDate || invoiceDate,
+        notes,
+        createdBy: user?.id || 'unknown',
+        validUntil: documentType === 'quote'
+          ? (editingInvoice?.validUntil || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString())
+          : undefined
+      };
 
-    if (editingInvoice) {
-      // Logic for "Convert to Invoice" check:
-      // If we switched types (e.g. Quote -> Invoice), ensure status makes sense
-      if (editingInvoice.documentType !== documentType) {
-        if (documentType === 'invoice' && newInvoice.status === 'PENDING') {
-          newInvoice.status = PaymentStatus.UNPAID;
+      if (editingInvoice && editingInvoice.id) {
+        // Logic for "Convert to Invoice" check:
+        // If we switched types (e.g. Quote -> Invoice), ensure status makes sense
+        if (editingInvoice.documentType !== documentType) {
+          if (documentType === 'invoice' && newInvoice.status === 'PENDING') {
+            newInvoice.status = PaymentStatus.UNPAID;
+          }
         }
+        await updateInvoice(newInvoice);
+      } else {
+        await addInvoice(newInvoice);
       }
-      updateInvoice(newInvoice);
-    } else {
-      addInvoice(newInvoice);
-    }
 
-    setEditingInvoice(null);
-    setView(documentType === 'quote' ? 'QUOTES' : 'INVOICES');
+      setEditingInvoice(null);
+      setView(documentType === 'quote' ? 'QUOTES' : 'INVOICES');
+    } catch (error) {
+      console.error("Failed to save:", error);
+      alert("Failed to save invoice/quote. Please checks console for details.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -800,11 +810,20 @@ const InvoiceBuilder = () => {
         </button>
         <button
           onClick={saveInvoice}
-          disabled={items.length === 0}
+          disabled={isSaving}
           className="px-10 py-5 rounded-2xl bg-brand-600 text-white font-black hover:bg-brand-700 transition-all flex items-center justify-center space-x-4 text-xs uppercase tracking-[0.2em] shadow-2xl shadow-brand-500/40 disabled:opacity-50"
         >
-          <Save size={20} />
-          <span>{editingInvoice ? 'Update & Save Changes' : 'Save & Finalize Invoice'}</span>
+          {isSaving ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span>Saving...</span>
+            </>
+          ) : (
+            <>
+              <Save size={20} />
+              <span>{editingInvoice ? 'Update & Save Changes' : 'Save & Finalize Invoice'}</span>
+            </>
+          )}
         </button>
       </div>
     </div >
