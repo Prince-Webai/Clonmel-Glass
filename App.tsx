@@ -203,24 +203,10 @@ const LoginScreen = () => {
   );
 };
 
-import { checkAndProcessAutomatedReminders } from './services/automationService';
-
 const MainContent = () => {
-  const { currentView, invoices, customers, settings, companyLogo, updateInvoice, currentUser } = useApp();
-  const lastAutomationRun = React.useRef<number>(0);
+  const { currentView } = useApp();
 
-  React.useEffect(() => {
-    const runAutomation = async () => {
-      const now = Date.now();
-      // Run logic only if user is logged in, data exists, and enough time (e.g. 1 hour) has passed since last check
-      // This prevents infinite loops when updateInvoice changes the dependency
-      if (currentUser && invoices.length > 0 && settings.webhookUrl && (now - lastAutomationRun.current > 3600000)) {
-        lastAutomationRun.current = now;
-        await checkAndProcessAutomatedReminders(invoices, customers, settings, companyLogo, updateInvoice);
-      }
-    };
-    runAutomation();
-  }, [currentUser, invoices, customers, settings, companyLogo, updateInvoice]);
+  // Automation removed in favor of n8n server-side workflow
 
   switch (currentView) {
     case 'LOGIN': return <LoginScreen />;

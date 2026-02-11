@@ -132,16 +132,29 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
   try {
     const logoBase64 = await getImageBase64(logoPath);
     if (logoBase64) {
-      // Adjusted for wider/shorter look as requested
-      const maxHeight = isMirrorzone ? 20 : 15;
+      // Helper: Get true dimensions
+      const getImageDimensions = (src: string): Promise<{ w: number, h: number }> => {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+          img.src = src;
+        });
+      };
 
-      let logoW = isMirrorzone ? 80 : 45;
-      let logoH = isMirrorzone ? 16 : 15;
+      const dims = await getImageDimensions(logoBase64);
+      const ratio = dims.w / dims.h;
 
-      if (logoH > maxHeight) {
-        const ratio = maxHeight / logoH;
-        logoH = maxHeight;
-        logoW = logoW * ratio;
+      // Restrict Max Dimensions
+      const maxW = isMirrorzone ? 80 : 60;
+      const maxH = 20;
+
+      let logoW = maxW;
+      let logoH = maxW / ratio;
+
+      // Constrain by height if needed
+      if (logoH > maxH) {
+        logoH = maxH;
+        logoW = maxH * ratio;
       }
 
       const logoX = pageWidth - margin - logoW;
@@ -360,29 +373,30 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
   doc.line(labX, totalsY, valX, totalsY);
 
   drawTotalLine("Total Net", `€${formatCurrency(invoice.subtotal)}`);
-  drawTotalLine("Total Discount", "0.00");
+  drawTotalLine("Total Discount", `€${formatCurrency(0)}`);
   drawTotalLine("Total VAT", `€${formatCurrency(invoice.taxAmount)}`);
 
   // Total Gross
-  totalsY += 2;
+  totalsY += 4;
   doc.line(labX, totalsY, valX, totalsY);
-  totalsY += 1;
+  totalsY += 2;
   drawTotalLine("Total Gross", `€${formatCurrency(invoice.total)}`, true);
-  totalsY += 1;
-  doc.line(labX, totalsY, valX, totalsY);
 
-  // Less Deposit
+  // Less Deposit Section
   totalsY += 2;
+  doc.line(labX, totalsY, valX, totalsY);
+  totalsY += 2; // Extra breathing room before "Less Deposit"
+
   const deposit = invoice.amountPaid || 0;
   drawTotalLine("Less Deposit", `€${formatCurrency(deposit)}`);
 
   // Total Payable
-  totalsY += 2;
+  totalsY += 4;
   doc.setDrawColor(31, 41, 55);
   doc.setLineWidth(0.5);
-  doc.line(labX, totalsY, valX, totalsY);
+  doc.line(labX, totalsY, valX, totalsY); // Thick line
 
-  totalsY += 1;
+  totalsY += 2;
   drawTotalLine("Total Payable", `€${formatCurrency(invoice.balanceDue)}`, true, true);
 
   // 7. FOOTER SECTION

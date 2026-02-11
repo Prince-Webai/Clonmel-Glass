@@ -24,7 +24,7 @@ import {
   ChevronRight,
   Eye
 } from 'lucide-react';
-import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { analyzeInvoiceTrends, generateReminderMessage } from '../services/geminiService.ts';
 import { generatePreviewUrl } from '../services/pdfService';
 
@@ -208,7 +208,12 @@ const ClientDetailModal = ({ invoice, onClose, onSendReminder, isReminding }: {
 };
 
 const Dashboard = () => {
-  const { invoices, user, databaseError, updateInvoice, companyLogo } = useApp();
+  const { invoices, user, databaseError, updateInvoice, companyLogo, refreshDatabase } = useApp();
+
+  // Force refresh on mount to ensure deleted items are gone if state was stale
+  useEffect(() => {
+    refreshDatabase();
+  }, []);
   // Initialize with "previous 24 hours" mock logs
   const [automationLog, setAutomationLog] = useState<string[]>(() => {
     const logs = [];
@@ -253,6 +258,7 @@ const Dashboard = () => {
     threeDaysFromNow.setDate(today.getDate() + 3);
 
     return invoices.filter(inv => {
+      if (inv.documentType === 'quote') return false;
       if (inv.status === PaymentStatus.PAID) return false;
       const dueDate = new Date(inv.dueDate);
       dueDate.setHours(0, 0, 0, 0);
@@ -416,10 +422,24 @@ const Dashboard = () => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      // Helper to parse 'YYYY-MM-DD' as local midnight
+      const parseLocal = (dateStr: string) => {
+        if (!dateStr) return new Date();
+        // If it's already a full ISO string (with T), standard Date parse is usually okay if we want point-in-time,
+        // but for 'YYYY-MM-DD' used in dateIssued, we want LOCAL day.
+        if (dateStr.includes('T')) return new Date(dateStr);
+
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        }
+        return new Date(dateStr);
+      };
+
       for (let i = 13; i >= 0; i--) {
         const d = new Date(today);
         d.setDate(today.getDate() - i);
-        const key = d.toISOString().split('T')[0]; // YYYY-MM-DD
+        const key = d.toLocaleDateString('en-CA'); // Local YYYY-MM-DD
         dataDisplay[key] = 0; // Initialize
         days.push({ key, label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) });
       }
@@ -427,16 +447,24 @@ const Dashboard = () => {
       relevantInvoices.forEach(inv => {
         // Use paymentDate for paid items (Cash Flow view), otherwise issue date
         const dateToUse = (inv.status === PaymentStatus.PAID && inv.paymentDate) ? inv.paymentDate : inv.dateIssued;
-        const date = new Date(dateToUse);
-        const dateKey = new Date(date);
-        dateKey.setHours(0, 0, 0, 0);
-        const key = dateKey.toISOString().split('T')[0];
+
+        let date: Date;
+        // Ensure we parse YYYY-MM-DD as LOCAL start-of-day
+        if (dateToUse && !dateToUse.includes('T') && dateToUse.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          date = parseLocal(dateToUse);
+        } else {
+          date = new Date(dateToUse);
+        }
+
+        const key = date.toLocaleDateString('en-CA'); // Local YYYY-MM-DD
 
         // Only count if within our initialized range
         if (dataDisplay[key] !== undefined) {
           dataDisplay[key] += Number(inv.total);
         }
       });
+
+      console.log('Chart Data Debug:', { trendView, days, dataDisplay }); // Debug log
 
       return days.map(day => ({
         name: day.label, // Display label (e.g., "Jan 24")
@@ -608,20 +636,15 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="p-6 h-80">
+
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <BarChart data={chartData}>
                   <XAxis
                     dataKey="name"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#94a3b8', fontSize: 11 }}
+                    tick={{ fill: '#94a3b8', fontSize: 10 }}
+                    dy={10}
                   />
                   <YAxis
                     axisLine={false}
@@ -630,30 +653,21 @@ const Dashboard = () => {
                     tickFormatter={(value) => formatCurrency(value)}
                   />
                   <Tooltip
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                    cursor={{ stroke: '#0ea5e9', strokeWidth: 2 }}
-                    formatter={(value: number) => [formatCurrency(value), 'Revenue']}
+                    cursor={{ fill: '#f1f5f9' }}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
+                    formatter={(value: number) => [`€${formatCurrency(value)}`, 'Revenue']}
                   />
-                  <Area
-                    type="monotone"
+                  <Bar
                     dataKey="amount"
-                    stroke="#0ea5e9"
-                    strokeWidth={3}
-                    fill="url(#colorRevenue)"
-                    label={(props: any) => (
-                      <text
-                        x={props.x}
-                        y={props.y - 10}
-                        fill="#0ea5e9"
-                        textAnchor="middle"
-                        fontSize={10}
-                        fontWeight="bold"
-                      >
-                        {formatCurrency(props.value)}
-                      </text>
-                    )}
-                  />
-                </AreaChart>
+                    fill="#0ea5e9"
+                    radius={[4, 4, 0, 0]}
+                    barSize={40}
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.amount > 0 ? '#0ea5e9' : '#e2e8f0'} />
+                    ))}
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
@@ -679,51 +693,41 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {useLocalReminderMode && (
-            <div className="bg-amber-50 border-2 border-amber-100 p-5 rounded-2xl shadow-sm">
-              <div className="flex items-center gap-3 mb-2 text-amber-700">
-                <AlertTriangle size={18} />
-                <span className="text-[10px] font-black uppercase tracking-widest">Notice</span>
-              </div>
-              <p className="text-[10px] font-medium text-amber-800 leading-relaxed">
-                Database schema missing <code className="bg-white px-1">last_reminder_sent</code>.
-                Proactive reminders are being tracked locally for this session.
-              </p>
-            </div>
-          )}
         </div>
       </div>
 
       {/* PDF Preview Modal */}
-      {previewUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/90 p-8 backdrop-blur-xl">
-          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-7xl h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300">
-            <div className="flex justify-between items-center px-10 py-6 border-b-2 border-slate-50 bg-white">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-brand-50 rounded-2xl text-brand-600">
-                  <Eye size={24} />
+      {
+        previewUrl && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/90 p-8 backdrop-blur-xl">
+            <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-7xl h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+              <div className="flex justify-between items-center px-10 py-6 border-b-2 border-slate-50 bg-white">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-brand-50 rounded-2xl text-brand-600">
+                    <Eye size={24} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Invoice Preview</h3>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">PDF Document Viewer</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Invoice Preview</h3>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">PDF Document Viewer</p>
-                </div>
+                <button onClick={() => setPreviewUrl(null)} className="text-slate-300 hover:bg-rose-50 hover:text-rose-500 rounded-full p-3 transition-all">
+                  <X size={28} />
+                </button>
               </div>
-              <button onClick={() => setPreviewUrl(null)} className="text-slate-300 hover:bg-rose-50 hover:text-rose-500 rounded-full p-3 transition-all">
-                <X size={28} />
-              </button>
-            </div>
-            <div className="flex-1 bg-slate-100 p-10 overflow-hidden relative">
-              <iframe src={previewUrl} className="w-full h-full rounded-3xl shadow-2xl border-8 border-white bg-white" title="PDF Preview" />
-            </div>
-            <div className="p-8 border-t-2 border-slate-50 bg-white flex justify-end">
-              <button onClick={() => setPreviewUrl(null)} className="px-12 py-4 bg-slate-900 text-white font-black hover:bg-slate-800 rounded-2xl transition-all text-[10px] uppercase tracking-[0.2em] shadow-2xl shadow-slate-900/20">
-                Exit Preview Mode
-              </button>
+              <div className="flex-1 bg-slate-100 p-10 overflow-hidden relative">
+                <iframe src={previewUrl} className="w-full h-full rounded-3xl shadow-2xl border-8 border-white bg-white" title="PDF Preview" />
+              </div>
+              <div className="p-8 border-t-2 border-slate-50 bg-white flex justify-end">
+                <button onClick={() => setPreviewUrl(null)} className="px-12 py-4 bg-slate-900 text-white font-black hover:bg-slate-800 rounded-2xl transition-all text-[10px] uppercase tracking-[0.2em] shadow-2xl shadow-slate-900/20">
+                  Exit Preview Mode
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 };
 
