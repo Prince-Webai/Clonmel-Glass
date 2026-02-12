@@ -225,6 +225,41 @@ const CustomerCRM = () => {
         }
     };
 
+    // Bulk Delete Logic
+    const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
+
+    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            setSelectedCustomerIds(filteredCustomers.map(c => c.id));
+        } else {
+            setSelectedCustomerIds([]);
+        }
+    };
+
+    const handleSelectCustomer = (id: string) => {
+        setSelectedCustomerIds(prev =>
+            prev.includes(id) ? prev.filter(cId => cId !== id) : [...prev, id]
+        );
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedCustomerIds.length === 0) return;
+
+        if (confirm(`Are you sure you want to delete ${selectedCustomerIds.length} customers? This cannot be undone.`)) {
+            let deletedCount = 0;
+            for (const id of selectedCustomerIds) {
+                try {
+                    await deleteCustomer(id);
+                    deletedCount++;
+                } catch (error) {
+                    console.error(`Failed to delete customer ${id}:`, error);
+                }
+            }
+            setSelectedCustomerIds([]);
+            alert(`Successfully deleted ${deletedCount} customers.`);
+        }
+    };
+
     return (
         <div className="max-w-6xl mx-auto space-y-6 pb-12">
             {/* Header */}
@@ -248,18 +283,30 @@ const CustomerCRM = () => {
                         ref={fileInputRef}
                         onChange={handleFileUpload}
                     />
-                    <button
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={isImporting}
-                        className="flex items-center gap-2 px-6 py-4 bg-white text-slate-600 border-2 border-slate-200 rounded-2xl hover:bg-slate-50 transition-all font-black text-sm uppercase tracking-wider"
-                    >
-                        {isImporting ? (
-                            <div className="w-5 h-5 border-2 border-slate-400 border-t-brand-500 rounded-full animate-spin" />
-                        ) : (
-                            <Upload size={20} />
-                        )}
-                        Bulk Import
-                    </button>
+
+                    {selectedCustomerIds.length > 0 ? (
+                        <button
+                            onClick={handleBulkDelete}
+                            className="flex items-center gap-2 px-6 py-4 bg-rose-600 text-white rounded-2xl hover:bg-rose-700 transition-all shadow-xl shadow-rose-500/20 font-black text-sm uppercase tracking-wider animate-in fade-in zoom-in"
+                        >
+                            <Trash2 size={20} />
+                            Delete Selected ({selectedCustomerIds.length})
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isImporting}
+                            className="flex items-center gap-2 px-6 py-4 bg-white text-slate-600 border-2 border-slate-200 rounded-2xl hover:bg-slate-50 transition-all font-black text-sm uppercase tracking-wider"
+                        >
+                            {isImporting ? (
+                                <div className="w-5 h-5 border-2 border-slate-400 border-t-brand-500 rounded-full animate-spin" />
+                            ) : (
+                                <Upload size={20} />
+                            )}
+                            Bulk Import
+                        </button>
+                    )}
+
                     <button
                         onClick={() => handleOpenModal()}
                         className="flex items-center gap-2 px-6 py-4 bg-brand-600 text-white rounded-2xl hover:bg-brand-700 transition-all shadow-xl shadow-brand-500/20 font-black text-sm uppercase tracking-wider"
@@ -287,6 +334,14 @@ const CustomerCRM = () => {
                 <table className="w-full">
                     <thead>
                         <tr className="bg-slate-50 border-b-2 border-slate-100">
+                            <th className="px-6 py-4 text-left w-12">
+                                <input
+                                    type="checkbox"
+                                    className="w-5 h-5 rounded border-slate-300 text-brand-600 focus:ring-brand-500 transition-all"
+                                    onChange={handleSelectAll}
+                                    checked={filteredCustomers.length > 0 && selectedCustomerIds.length === filteredCustomers.length}
+                                />
+                            </th>
                             <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Customer</th>
                             <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Contact Info</th>
                             <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest hidden md:table-cell">Location</th>
@@ -297,6 +352,14 @@ const CustomerCRM = () => {
                     <tbody className="divide-y divide-slate-100">
                         {filteredCustomers.map(customer => (
                             <tr key={customer.id} className="hover:bg-slate-50/50 transition-colors group">
+                                <td className="px-6 py-4">
+                                    <input
+                                        type="checkbox"
+                                        className="w-5 h-5 rounded border-slate-300 text-brand-600 focus:ring-brand-500 transition-all"
+                                        checked={selectedCustomerIds.includes(customer.id)}
+                                        onChange={() => handleSelectCustomer(customer.id)}
+                                    />
+                                </td>
                                 <td className="px-6 py-4">
                                     <div>
                                         <div className="font-bold text-slate-900 text-sm">{customer.name}</div>

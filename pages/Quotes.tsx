@@ -175,8 +175,16 @@ const Quotes = () => {
                                         <div className="flex items-center justify-center gap-2 transition-opacity">
                                             <button
                                                 onClick={() => {
-                                                    // Convert logic: load quote but set as invoice
-                                                    const quoteAsInvoice = { ...quote, documentType: 'invoice' as const };
+                                                    // Convert logic: load quote but set as invoice & NEW ID
+                                                    const randomVal = Math.floor(1000 + Math.random() * 9000);
+                                                    const newInvoiceNumber = `INV-${new Date().getFullYear()}-${randomVal}`;
+                                                    const quoteAsInvoice = {
+                                                        ...quote,
+                                                        id: '', // Clear ID to create NEW invoice
+                                                        documentType: 'invoice' as const,
+                                                        invoiceNumber: newInvoiceNumber,
+                                                        status: PaymentStatus.UNPAID
+                                                    };
                                                     setEditingInvoice(quoteAsInvoice);
                                                     setView('CREATE_INVOICE');
                                                 }}

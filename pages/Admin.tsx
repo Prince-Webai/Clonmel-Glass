@@ -6,6 +6,8 @@ import {
   Upload, Search, Database, RefreshCcw, ShieldCheck,
   Terminal, Cloud, Code, Copy, AlertTriangle, X, ChevronLeft
 } from 'lucide-react';
+import { useToast } from '../contexts/ToastContext';
+import { parseProductCSV } from '../utils/csvParser';
 
 const Admin = () => {
   const {
@@ -14,6 +16,7 @@ const Admin = () => {
     companyLogo, setCompanyLogo, isSyncing, databaseError, refreshDatabase,
     currentView
   } = useApp();
+  const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<'PRODUCTS' | 'USERS'>(currentView === 'USERS' ? 'USERS' : 'PRODUCTS');
   const [activeCompany, setActiveCompany] = useState<'clonmel' | 'mirrorzone'>('clonmel');
@@ -76,50 +79,6 @@ const Admin = () => {
   // Product Import State
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  const parseProductCSV = (text: string) => {
-    const lines = text.split(/\r?\n/);
-    if (lines.length < 2) return [];
-
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
-
-    const result = [];
-    for (let i = 1; i < lines.length; i++) {
-      if (!lines[i].trim()) continue;
-
-      const row: string[] = [];
-      let inQuote = false;
-      let currentCell = '';
-      for (let char of lines[i]) {
-        if (char === '"') {
-          inQuote = !inQuote;
-        } else if (char === ',' && !inQuote) {
-          row.push(currentCell.replace(/^"|"$/g, '').trim());
-          currentCell = '';
-        } else {
-          currentCell += char;
-        }
-      }
-      row.push(currentCell.replace(/^"|"$/g, '').trim());
-
-      if (row.length < 2) continue;
-
-      const entry: any = {};
-      headers.forEach((h, idx) => {
-        const val = row[idx] || '';
-        if (h.includes('name') || h.includes('title')) entry.name = val;
-        else if (h.includes('price') || h.includes('cost')) entry.price = val;
-        else if (h.includes('unit')) entry.unit = val;
-        else if (h.includes('category')) entry.category = val;
-        else if (h.includes('desc')) entry.description = val;
-        else if (h.includes('code') || h.includes('sku')) entry.sku = val; // Store SKU in description or similar if needed, or ignore
-      });
-
-      if (entry.name && entry.price) result.push(entry);
-    }
-    return result;
-  };
-
   const handleProductUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -130,37 +89,47 @@ const Admin = () => {
     reader.onload = async (evt) => {
       try {
         const text = evt.target?.result as string;
-        const importedProducts = parseProductCSV(text);
+        const { products: importedProducts, headers, errors } = parseProductCSV(text);
 
         if (importedProducts.length === 0) {
-          alert('No valid products found. Ensure CSV has Name and Price columns.');
+          showToast(`No valid products found.\n\nDetected Headers: ${headers.join(', ')}\n\nRequired: 'Name' and 'Price'.\nPlease check your CSV formatting.`, 'error', 5000);
+          if (errors.length > 0) console.error("CSV Parsing Errors:", errors);
           return;
         }
 
         if (confirm(`Found ${importedProducts.length} products. Import to ${activeCompany === 'mirrorzone' ? 'Mirrorzone' : 'Clonmel Glass'}?`)) {
           let importedCount = 0;
+          let errorCount = 0;
+
+          showToast(`Starting import of ${importedProducts.length} products...`, 'info');
+
           for (const p of importedProducts) {
             try {
               const newProduct: Product = {
                 id: `P-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
                 name: p.name || 'Unknown Product',
-                price: parseFloat(p.price) || 0,
+                price: typeof p.price === 'string' ? parseFloat(String(p.price).replace(/[^0-9.-]+/g, '')) : p.price,
                 unit: p.unit || (activeCompany === 'mirrorzone' ? 'pcs' : 'sqm'),
                 category: p.category || (activeCompany === 'mirrorzone' ? 'Mirrors' : 'Clear Glass'),
-                description: p.description || `Imported ${activeCompany} Product`,
+                description: p.description || p.sku || `Imported ${activeCompany} Product`,
                 company: activeCompany
               };
               await addProduct(newProduct);
               importedCount++;
             } catch (err) {
               console.error('Failed to import product:', p, err);
+              errorCount++;
             }
           }
-          alert(`Successfully imported ${importedCount} products.`);
+          if (errorCount > 0) {
+            showToast(`Import Complete.\n\nSuccess: ${importedCount}\nFailed: ${errorCount}`, 'warning', 5000);
+          } else {
+            showToast(`Successfully imported ${importedCount} products.`, 'success');
+          }
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Import error:', err);
-        alert('Failed to process CSV file.');
+        showToast(`Failed to process CSV file: ${err.message}`, 'error');
       } finally {
         setIsImporting(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -173,6 +142,53 @@ const Admin = () => {
   if (currentUser?.role !== UserRole.ADMIN) {
     return <div className="p-20 text-center text-slate-500 font-black uppercase tracking-widest">Access Restricted to Administrators</div>;
   }
+
+  // --- Bulk Selection State ---
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+
+  // Reset selection when changing tabs or companies
+  useEffect(() => {
+    setSelectedProducts(new Set());
+  }, [activeCompany, activeTab, categoryFilter, productSearch]);
+
+  const toggleProductSelection = (id: string) => {
+    const newSelection = new Set(selectedProducts);
+    if (newSelection.has(id)) {
+      newSelection.delete(id);
+    } else {
+      newSelection.add(id);
+    }
+    setSelectedProducts(newSelection);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedProducts.size === filteredProducts.length && filteredProducts.length > 0) {
+      setSelectedProducts(new Set());
+    } else {
+      const allIds = filteredProducts
+        .filter(p => (p.company === activeCompany || (!p.company && (activeCompany === 'mirrorzone' ? p.category === 'Mirrors' : p.category !== 'Mirrors'))))
+        .map(p => p.id);
+      setSelectedProducts(new Set(allIds));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedProducts.size === 0) return;
+
+    if (confirm(`Are you sure you want to delete ${selectedProducts.size} products? This cannot be undone.`)) {
+      let deletedCount = 0;
+      for (const id of selectedProducts) {
+        try {
+          await deleteProduct(id);
+          deletedCount++;
+        } catch (err) {
+          console.error(`Failed to delete product ${id}`, err);
+        }
+      }
+      setSelectedProducts(new Set());
+      alert(`Successfully deleted ${deletedCount} products.`);
+    }
+  };
 
   // --- Product Handlers ---
   const handleSaveProduct = async (e: React.FormEvent) => {
@@ -348,9 +364,28 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
         <button onClick={() => setActiveTab('USERS')} className={`pb-5 px-1 text-[10px] font-black uppercase tracking-[0.2em] border-b-4 transition-all ${activeTab === 'USERS' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-400 hover:text-slate-900'}`}>Permissions</button>
       </div>
 
+      {/* Bulk Action Bar */}
+      {selectedProducts.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-8 py-4 rounded-full shadow-2xl flex items-center gap-6 animate-in slide-in-from-bottom-10 fade-in duration-300">
+          <div className="text-xs font-black uppercase tracking-widest">{selectedProducts.size} Items Selected</div>
+          <button
+            onClick={handleBulkDelete}
+            className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl transition-all font-bold text-xs uppercase tracking-wider"
+          >
+            <Trash2 size={16} /> Delete Selected
+          </button>
+          <button
+            onClick={() => setSelectedProducts(new Set())}
+            className="p-2 hover:bg-slate-800 rounded-full transition-all text-slate-400 hover:text-white"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       {activeTab === 'PRODUCTS' && (
         <div className="space-y-10">
-
+          {/* ... existing company toggle and form ... */}
           {/* Company Toggle */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <button
@@ -401,6 +436,7 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
           </div>
 
           <div className="bg-white p-8 md:p-10 rounded-[2.5rem] border-2 border-slate-100 shadow-2xl animate-in slide-in-from-top-4 duration-500">
+            {/* ... form content ... */}
             <div className="flex items-center justify-between mb-8 border-b-2 border-slate-50 pb-6">
               <div className="flex items-center gap-4">
                 <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-lg ${editingProduct ? 'bg-amber-500 shadow-amber-500/20' : activeCompany === 'mirrorzone' ? 'bg-slate-900 shadow-slate-900/20' : 'bg-red-600 shadow-red-600/20'}`}>
@@ -527,6 +563,12 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
                 <div className="bg-slate-900 px-8 py-4 flex items-center justify-between">
                   <h3 className="text-white font-black uppercase tracking-widest text-sm flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                    {/* Select All Checkbox */}
+                    <input
+                      type="checkbox"
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-purple-600 focus:ring-purple-500"
+                    />
                     Mirrorzone <span className="opacity-50">Collection</span>
                   </h3>
                   <span className="text-[10px] font-bold text-slate-400 bg-slate-800 px-3 py-1 rounded-full uppercase tracking-widest">
@@ -536,7 +578,10 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
                 <table className="w-full">
                   <thead className="bg-slate-50/80 border-b-2 border-slate-100">
                     <tr className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
-                      <th className="text-left px-8 py-6">Product Line</th>
+                      <th className="w-12 px-8 py-6">
+                        <span className="sr-only">Select</span>
+                      </th>
+                      <th className="text-left px-4 py-6">Product Line</th>
                       <th className="text-left px-8 py-6">Pricing Index</th>
                       <th className="text-right px-8 py-6">Actions</th>
                     </tr>
@@ -546,14 +591,22 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
                       p.company === 'mirrorzone' ||
                       (!p.company && (p.category === 'Mirrors' || String(p.category).toLowerCase().includes('mirror')))
                     )).length === 0 ? (
-                      <tr><td colSpan={3} className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">No mirrors found in catalog</td></tr>
+                      <tr><td colSpan={4} className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">No mirrors found in catalog</td></tr>
                     ) : (
                       filteredProducts.filter(p => (
                         p.company === 'mirrorzone' ||
                         (!p.company && (p.category === 'Mirrors' || String(p.category).toLowerCase().includes('mirror')))
                       )).map(p => (
-                        <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
+                        <tr key={p.id} className={`hover:bg-slate-50/50 transition-colors group ${selectedProducts.has(p.id) ? 'bg-purple-50/50' : ''}`}>
                           <td className="px-8 py-6">
+                            <input
+                              type="checkbox"
+                              checked={selectedProducts.has(p.id)}
+                              onChange={() => toggleProductSelection(p.id)}
+                              className="w-5 h-5 rounded-md border-2 border-slate-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                            />
+                          </td>
+                          <td className="px-4 py-6">
                             <div className="font-black text-slate-900 group-hover:text-brand-600 transition-colors">{String(p.name)}</div>
                             <div className="text-[9px] font-bold text-slate-400 mt-1 uppercase">{String(p.category)}</div>
                           </td>
@@ -584,6 +637,12 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
                 <div className="bg-red-600 px-8 py-4 flex items-center justify-between">
                   <h3 className="text-white font-black uppercase tracking-widest text-sm flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
+                    {/* Select All Checkbox */}
+                    <input
+                      type="checkbox"
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded border-brand-200 bg-red-700 text-white focus:ring-white"
+                    />
                     Clonmel Glass <span className="opacity-70">Collection</span>
                   </h3>
                   <span className="text-[10px] font-bold text-white/80 bg-red-700 px-3 py-1 rounded-full uppercase tracking-widest">
@@ -593,7 +652,10 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
                 <table className="w-full">
                   <thead className="bg-slate-50/80 border-b-2 border-slate-100">
                     <tr className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
-                      <th className="text-left px-8 py-6">Product Line</th>
+                      <th className="w-12 px-8 py-6">
+                        <span className="sr-only">Select</span>
+                      </th>
+                      <th className="text-left px-4 py-6">Product Line</th>
                       <th className="text-left px-8 py-6">Pricing Index</th>
                       <th className="text-right px-8 py-6">Actions</th>
                     </tr>
@@ -602,13 +664,21 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
                     {filteredProducts.filter(p => (
                       p.company === 'clonmel' || (!p.company && !String(p.category).toLowerCase().includes('mirror'))
                     )).length === 0 ? (
-                      <tr><td colSpan={3} className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">No other products found</td></tr>
+                      <tr><td colSpan={4} className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">No other products found</td></tr>
                     ) : (
                       filteredProducts.filter(p => (
                         p.company === 'clonmel' || (!p.company && !String(p.category).toLowerCase().includes('mirror'))
                       )).map(p => (
-                        <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
+                        <tr key={p.id} className={`hover:bg-slate-50/50 transition-colors group ${selectedProducts.has(p.id) ? 'bg-red-50/50' : ''}`}>
                           <td className="px-8 py-6">
+                            <input
+                              type="checkbox"
+                              checked={selectedProducts.has(p.id)}
+                              onChange={() => toggleProductSelection(p.id)}
+                              className="w-5 h-5 rounded-md border-2 border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                            />
+                          </td>
+                          <td className="px-4 py-6">
                             <div className="font-black text-slate-900 group-hover:text-brand-600 transition-colors">{String(p.name)}</div>
                             <div className="text-[9px] font-bold text-slate-400 mt-1 uppercase">{String(p.category)}</div>
                           </td>

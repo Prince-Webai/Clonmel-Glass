@@ -27,12 +27,32 @@ export const sendToXero = async (invoice: Invoice, customer: Customer | undefine
         DueDate: invoice.dueDate.split('T')[0],
         Reference: invoice.invoiceNumber,
         Status: 'AUTHORISED',
-        LineItems: invoice.items.map(item => ({
-            Description: item.description,
-            Quantity: item.quantity,
-            UnitAmount: item.unitPrice,
-            AccountCode: "200"
-        })),
+        LineItems: invoice.items.map(item => {
+            // Fix for Xero: Clonmel 'sqm' items should have integer quantities (1, 2, etc.)
+            // We calculate the total line value, round the quantity up to the nearest integer,
+            // and adjust the unit price so the total remains correct.
+            const isSqm = item.unit === 'sqm' || (item.description && item.description.toLowerCase().includes('sqm'));
+
+            if (isSqm && item.quantity % 1 !== 0) {
+                const cleanQty = Math.ceil(item.quantity);
+                const totalLineValue = item.quantity * item.unitPrice;
+                const adjustedUnitPrice = totalLineValue / cleanQty;
+
+                return {
+                    Description: `${item.description} (Qty Adjusted: ${item.quantity} -> ${cleanQty})`,
+                    Quantity: cleanQty,
+                    UnitAmount: Number(adjustedUnitPrice.toFixed(4)), // Xero handles 4 decimal places well
+                    AccountCode: "200"
+                };
+            }
+
+            return {
+                Description: item.description,
+                Quantity: item.quantity,
+                UnitAmount: item.unitPrice,
+                AccountCode: "200"
+            };
+        }),
         // Custom Metadata for Webhook (ignored by Xero if mapped selectively, useful for Zapier/Make)
         _metadata: {
             source: 'Clonmel Glass Invoice Hub',

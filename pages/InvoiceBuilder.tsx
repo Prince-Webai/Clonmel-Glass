@@ -5,6 +5,7 @@ import { useApp } from '../contexts/AppContext';
 import { Invoice, InvoiceItem, PaymentStatus, Product } from '../types';
 import { Plus, Trash2, Wand2, Save, Ruler, Calculator, Phone, Search, Check, Pencil, X } from 'lucide-react';
 import { generateInvoiceNotes } from '../services/geminiService';
+import { useToast } from '../contexts/ToastContext';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -17,6 +18,7 @@ const formatCurrency = (amount: number) => {
 
 const InvoiceBuilder = () => {
   const { products, addInvoice, updateInvoice, user, setView, customers, editingInvoice, setEditingInvoice, settings } = useApp();
+  const { showToast } = useToast();
 
   const [documentType, setDocumentType] = useState<'invoice' | 'quote'>('invoice');
   const [invoiceNumber, setInvoiceNumber] = useState(`INV-${Date.now().toString().slice(-6)}`);
@@ -57,7 +59,14 @@ const InvoiceBuilder = () => {
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [customerAddress, setCustomerAddress] = useState('');
+  const [customerAddress, setCustomerAddress] = useState(''); // Kept for legacy compatibility if needed, but primary source will be new fields
+
+  // Structured Address Fields
+  const [addressLine1, setAddressLine1] = useState('');
+  const [addressLine2, setAddressLine2] = useState('');
+  const [city, setCity] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [country, setCountry] = useState('Ireland');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
   const [items, setItems] = useState<InvoiceItem[]>([]);
@@ -72,6 +81,15 @@ const InvoiceBuilder = () => {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
 
   const [selectedProductId, setSelectedProductId] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+
+  // Sync selectedCustomerId when editing an invoice
+  useEffect(() => {
+    if (editingInvoice) {
+      setSelectedCustomerId(editingInvoice.customerId);
+    }
+  }, [editingInvoice]);
+
   const [customDescription, setCustomDescription] = useState('');
   const [quantity, setQuantity] = useState<number | string>(1);
   const [width, setWidth] = useState<string>('');
@@ -192,20 +210,62 @@ const InvoiceBuilder = () => {
 
   const saveInvoice = async () => {
     if (!customerName || items.length === 0) {
-      alert("Please fill in customer details and add at least one item.");
+      showToast("Please fill in customer details and add at least one item.", "warning");
       return;
     }
 
+    // Combine structured address fields
+    const fullAddress = [addressLine1, addressLine2, city, postalCode, country].filter(Boolean).join(', ');
+
     setIsSaving(true);
     try {
+      let finalCustomerId = selectedCustomerId;
+
+      // START AUTO-SAVE CUSTOMER LOGIC
+      if (!finalCustomerId && customerName) {
+        // Check if customer already exists by name or email (to avoid duplicates)
+        const existingCustomer = customers.find(c =>
+          c.name.toLowerCase() === customerName.toLowerCase() ||
+          (c.email && customerEmail && c.email.toLowerCase() === customerEmail.toLowerCase())
+        );
+
+        if (existingCustomer) {
+          finalCustomerId = existingCustomer.id;
+        } else {
+          // Create new customer
+          const newCustomer: Customer = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+            name: customerName,
+            email: customerEmail,
+            phone: customerPhone,
+            address: addressLine1,
+            addressLine2: addressLine2,
+            city: city,
+            postalCode: postalCode,
+            country: country,
+            company: '', // Optional
+            notes: 'Auto-created from Invoice Builder',
+            tags: ['Auto-Created'],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            createdBy: user?.id || 'system'
+          };
+
+          await addCustomer(newCustomer);
+          finalCustomerId = newCustomer.id;
+          showToast(`New customer "${customerName}" added to CRM.`, "success");
+        }
+      }
+      // END AUTO-SAVE LOGIC
+
       const newInvoice: Invoice = {
         id: (editingInvoice && editingInvoice.id) ? editingInvoice.id : Date.now().toString(),
         invoiceNumber: invoiceNumber,
-        customerId: editingInvoice ? editingInvoice.customerId : 'cust_new',
+        customerId: finalCustomerId || 'cust_unknown',
         customerName,
         customerEmail,
         customerPhone,
-        customerAddress,
+        customerAddress: fullAddress, // Use the combined string for the invoice display
         company,
         documentType,
         items,
@@ -239,10 +299,11 @@ const InvoiceBuilder = () => {
       }
 
       setEditingInvoice(null);
+      showToast(`${documentType === 'quote' ? 'Quote' : 'Invoice'} saved successfully.`, "success");
       setView(documentType === 'quote' ? 'QUOTES' : 'INVOICES');
     } catch (error) {
       console.error("Failed to save:", error);
-      alert("Failed to save invoice/quote. Please checks console for details.");
+      showToast("Failed to save invoice/quote. Check console for details.", "error");
     } finally {
       setIsSaving(false);
     }
@@ -394,6 +455,7 @@ const InvoiceBuilder = () => {
                             const parts = [customer.address, customer.city, customer.postalCode, customer.country];
                             setCustomerAddress(parts.filter(Boolean).join(', '));
                             setCustomerSearchTerm(customer.name);
+                            setSelectedCustomerId(customer.id);
                             setShowCustomerDropdown(false);
                           }}
                           className="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 flex justify-between items-center group"
@@ -455,12 +517,45 @@ const InvoiceBuilder = () => {
                 </div>
               </div>
             </div>
-            <div>
-              <textarea
-                className="w-full text-slate-900 bg-white border-2 border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 outline-none h-20 resize-none transition-all"
-                placeholder="Street, City, Postal Code..."
-                value={customerAddress}
-                onChange={e => setCustomerAddress(e.target.value)}
+            <div className="space-y-3 p-1">
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">Billing Address</label>
+
+              <input
+                type="text"
+                placeholder="Address Line 1"
+                className="w-full text-slate-900 bg-white border-2 border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-brand-500 outline-none transition-all"
+                value={addressLine1}
+                onChange={e => setAddressLine1(e.target.value)}
+              />
+              <input
+                type="text"
+                placeholder="Address Line 2 (Optional)"
+                className="w-full text-slate-900 bg-white border-2 border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-brand-500 outline-none transition-all"
+                value={addressLine2}
+                onChange={e => setAddressLine2(e.target.value)}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  placeholder="City"
+                  className="w-full text-slate-900 bg-white border-2 border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-brand-500 outline-none transition-all"
+                  value={city}
+                  onChange={e => setCity(e.target.value)}
+                />
+                <input
+                  type="text"
+                  placeholder="Eircode / Postcode"
+                  className="w-full text-slate-900 bg-white border-2 border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-brand-500 outline-none transition-all"
+                  value={postalCode}
+                  onChange={e => setPostalCode(e.target.value)}
+                />
+              </div>
+              <input
+                type="text"
+                placeholder="Country"
+                className="w-full text-slate-900 bg-white border-2 border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-brand-500 outline-none transition-all"
+                value={country}
+                onChange={e => setCountry(e.target.value)}
               />
             </div>
           </div>

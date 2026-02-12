@@ -244,12 +244,42 @@ const Dashboard = () => {
   const localReminderTracker = useRef<Record<string, string>>({});
   const [useLocalReminderMode, setUseLocalReminderMode] = useState(false);
   const localModeRef = useRef(false);
-  const [trendView, setTrendView] = useState<'monthly' | 'daily'>('daily');
+  const [trendView, setTrendView] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('daily');
+  const [dateFilter, setDateFilter] = useState<'all' | 'thisMonth' | 'lastMonth' | 'thisYear' | 'lastYear'>('all');
 
-  const totalRevenue = invoices.filter(inv => inv.documentType !== 'quote').reduce((acc, inv) => acc + (Number(inv.amountPaid) || 0), 0);
-  const invoiceOutstanding = invoices.filter(inv => inv.documentType !== 'quote').reduce((acc, inv) => acc + (Number(inv.balanceDue) || 0), 0);
-  const quoteOutstanding = invoices.filter(inv => inv.documentType === 'quote').reduce((acc, inv) => acc + (Number(inv.total) || 0), 0);
-  const paidInvoices = invoices.filter(i => i.status === PaymentStatus.PAID && i.documentType !== 'quote').length;
+  // Filter invoices based on selected date range
+  const filteredInvoices = useMemo(() => {
+    if (dateFilter === 'all') return invoices;
+
+    const now = new Date();
+    const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    const startOfThisYear = new Date(now.getFullYear(), 0, 1);
+    const startOfLastYear = new Date(now.getFullYear() - 1, 0, 1);
+    const endOfLastYear = new Date(now.getFullYear() - 1, 11, 31);
+
+    return invoices.filter(inv => {
+      const date = new Date(inv.dateIssued);
+      switch (dateFilter) {
+        case 'thisMonth':
+          return date >= startOfThisMonth && date <= now;
+        case 'lastMonth':
+          return date >= startOfLastMonth && date <= endOfLastMonth;
+        case 'thisYear':
+          return date >= startOfThisYear && date <= now;
+        case 'lastYear':
+          return date >= startOfLastYear && date <= endOfLastYear;
+        default:
+          return true;
+      }
+    });
+  }, [invoices, dateFilter]);
+
+  const totalRevenue = filteredInvoices.filter(inv => inv.documentType !== 'quote').reduce((acc, inv) => acc + (Number(inv.amountPaid) || 0), 0);
+  const invoiceOutstanding = filteredInvoices.filter(inv => inv.documentType !== 'quote').reduce((acc, inv) => acc + (Number(inv.balanceDue) || 0), 0);
+  const quoteOutstanding = filteredInvoices.filter(inv => inv.documentType === 'quote').reduce((acc, inv) => acc + (Number(inv.total) || 0), 0);
+  const paidInvoices = filteredInvoices.filter(i => i.status === PaymentStatus.PAID && i.documentType !== 'quote').length;
 
   const reminderCandidates = useMemo(() => {
     const today = new Date();
@@ -260,16 +290,30 @@ const Dashboard = () => {
     return invoices.filter(inv => {
       if (inv.documentType === 'quote') return false;
       if (inv.status === PaymentStatus.PAID) return false;
+      if (!inv.dueDate) return false;
+
       const dueDate = new Date(inv.dueDate);
+      if (isNaN(dueDate.getTime())) return false; // Check for invalid date
+
       dueDate.setHours(0, 0, 0, 0);
       return dueDate <= threeDaysFromNow;
-    }).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+    }).sort((a, b) => {
+      const dateA = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+      const dateB = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+      return dateA - dateB;
+    });
   }, [invoices]);
 
   const overdueCount = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return invoices.filter(inv => inv.status !== PaymentStatus.PAID && new Date(inv.dueDate) < today).length;
+    return invoices.filter(inv =>
+      inv.documentType !== 'quote' &&
+      inv.status !== PaymentStatus.PAID &&
+      inv.dueDate &&
+      !isNaN(new Date(inv.dueDate).getTime()) &&
+      new Date(inv.dueDate) < today
+    ).length;
   }, [invoices]);
 
   useEffect(() => {
@@ -398,7 +442,7 @@ const Dashboard = () => {
   // Effect was here
 
 
-  // Group invoices by month or day based on trendView
+  // Group invoices by period based on trendView
   const chartData = useMemo(() => {
     const dataDisplay: Record<string, number> = {};
     const now = new Date();
@@ -406,16 +450,86 @@ const Dashboard = () => {
     // Filter invoices first
     const relevantInvoices = invoices.filter(inv => inv.documentType !== 'quote');
 
-    if (trendView === 'monthly') {
+    if (trendView === 'yearly') {
+      // Yearly view - Last 5 years
+      const years = [];
+      const currentYear = now.getFullYear();
+      for (let i = 4; i >= 0; i--) {
+        const year = currentYear - i;
+        dataDisplay[year.toString()] = 0;
+        years.push({ key: year.toString(), label: year.toString() });
+      }
+
       relevantInvoices.forEach(inv => {
         const date = new Date(inv.dateIssued);
-        const key = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-        dataDisplay[key] = (dataDisplay[key] || 0) + Number(inv.total);
+        const year = date.getFullYear().toString();
+        if (dataDisplay[year] !== undefined) {
+          dataDisplay[year] += Number(inv.total);
+        }
       });
-      return Object.entries(dataDisplay)
-        .map(([month, amount]) => ({ name: month, amount }))
-        .sort((a, b) => new Date(a.name).getTime() - new Date(b.name).getTime())
-        .slice(-6); // Last 6 months
+
+      return years.map(year => ({
+        name: year.label,
+        amount: dataDisplay[year.key]
+      }));
+    } else if (trendView === 'monthly') {
+      // Monthly view - Last 12 months
+      const months = [];
+      const today = new Date();
+
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const label = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        dataDisplay[key] = 0;
+        months.push({ key, label });
+      }
+
+      relevantInvoices.forEach(inv => {
+        const date = new Date(inv.dateIssued);
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        if (dataDisplay[key] !== undefined) {
+          dataDisplay[key] += Number(inv.total);
+        }
+      });
+
+      return months.map(month => ({
+        name: month.label,
+        amount: dataDisplay[month.key]
+      }));
+    } else if (trendView === 'weekly') {
+      // Weekly view - Last 8 weeks
+      const weeks = [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      for (let i = 7; i >= 0; i--) {
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - (i * 7) - today.getDay());
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+
+        const key = weekStart.toLocaleDateString('en-CA');
+        const label = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+        dataDisplay[key] = 0;
+        weeks.push({ key, label, startDate: new Date(weekStart), endDate: new Date(weekEnd) });
+      }
+
+      relevantInvoices.forEach(inv => {
+        const dateToUse = (inv.status === PaymentStatus.PAID && inv.paymentDate) ? inv.paymentDate : inv.dateIssued;
+        const date = new Date(dateToUse);
+
+        weeks.forEach(week => {
+          if (date >= week.startDate && date <= week.endDate) {
+            dataDisplay[week.key] += Number(inv.total);
+          }
+        });
+      });
+
+      return weeks.map(week => ({
+        name: week.label,
+        amount: dataDisplay[week.key]
+      }));
     } else {
       // Daily view - Last 14 days
       const days = [];
@@ -464,7 +578,6 @@ const Dashboard = () => {
         }
       });
 
-      console.log('Chart Data Debug:', { trendView, days, dataDisplay }); // Debug log
 
       return days.map(day => ({
         name: day.label, // Display label (e.g., "Jan 24")
@@ -496,6 +609,22 @@ const Dashboard = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Date Filter Dropdown */}
+          <div className="relative">
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value as any)}
+              className="appearance-none bg-white text-xs font-black text-slate-700 px-5 py-2.5 rounded-2xl border border-slate-200 shadow-sm outline-none focus:border-brand-500 cursor-pointer pr-8"
+            >
+              <option value="all">All Time</option>
+              <option value="thisMonth">This Month</option>
+              <option value="lastMonth">Last Month</option>
+              <option value="thisYear">This Year</option>
+              <option value="lastYear">Last Year</option>
+            </select>
+            <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 rotate-90 pointer-events-none" />
+          </div>
+
           <div className={`text-xs font-black px-5 py-2.5 rounded-2xl border flex items-center gap-2 shadow-sm transition-all ${useLocalReminderMode ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}>
             <Activity size={14} className={useLocalReminderMode ? '' : 'animate-pulse'} />
             {useLocalReminderMode ? 'LOCAL MODE' : 'SYSTEM ACTIVE'}
@@ -520,7 +649,7 @@ const Dashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
+        <div className="lg:col-span-3 space-y-8">
           {/* Payment Action Center (Premium) */}
           <div className="bg-white rounded-[2rem] border border-slate-100 overflow-hidden shadow-xl shadow-slate-200/40">
             <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-white/50 backdrop-blur-sm">
@@ -618,7 +747,7 @@ const Dashboard = () => {
             <div className="p-6 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
                 <TrendingUp size={16} className="text-brand-500" />
-                {trendView === 'monthly' ? 'Monthly' : 'Daily'} Revenue Trends
+                {trendView === 'yearly' ? 'Yearly' : trendView === 'monthly' ? 'Monthly' : trendView === 'weekly' ? 'Weekly' : 'Daily'} Revenue Trends
               </h3>
               <div className="flex bg-slate-200/50 p-1 rounded-lg">
                 <button
@@ -628,10 +757,22 @@ const Dashboard = () => {
                   Daily
                 </button>
                 <button
+                  onClick={() => setTrendView('weekly')}
+                  className={`px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-md transition-all ${trendView === 'weekly' ? 'bg-white text-brand-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Weekly
+                </button>
+                <button
                   onClick={() => setTrendView('monthly')}
                   className={`px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-md transition-all ${trendView === 'monthly' ? 'bg-white text-brand-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                   Monthly
+                </button>
+                <button
+                  onClick={() => setTrendView('yearly')}
+                  className={`px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-md transition-all ${trendView === 'yearly' ? 'bg-white text-brand-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Yearly
                 </button>
               </div>
             </div>
@@ -671,28 +812,6 @@ const Dashboard = () => {
               </ResponsiveContainer>
             </div>
           </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="bg-slate-900 p-6 rounded-2xl shadow-xl text-white overflow-hidden relative">
-            <History className="absolute -right-4 -bottom-4 text-white/5" size={100} />
-            <h3 className="text-xs font-black text-brand-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-              <Activity size={14} />
-              Automation Log
-            </h3>
-            <div className="space-y-3 relative z-10 h-64 overflow-y-auto custom-scrollbar pr-2">
-              {automationLog.length === 0 ? (
-                <p className="text-[10px] text-slate-500 italic">No logs available.</p>
-              ) : (
-                automationLog.map((log, i) => (
-                  <div key={i} className="text-[10px] font-mono bg-white/5 p-2 rounded border border-white/10 animate-in fade-in slide-in-from-left-2 duration-300">
-                    {safeRender(log)}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
         </div>
       </div>
 

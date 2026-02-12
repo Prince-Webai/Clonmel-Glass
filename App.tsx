@@ -10,6 +10,8 @@ import CustomerCRM from './pages/CustomerCRM.tsx';
 import Admin from './pages/Admin.tsx';
 import Quotes from './pages/Quotes.tsx';
 import Settings from './pages/Settings.tsx';
+import InvoiceListTest from './pages/InvoiceListTest.tsx';
+import InvoiceListSimple from './pages/InvoiceListSimple.tsx';
 
 const LoginScreen = () => {
   const { login } = useApp();
@@ -223,14 +225,30 @@ const MainContent = () => {
   }
 };
 
-const App = () => {
+import { ToastProvider } from './contexts/ToastContext';
+
+const AppContent = () => {
+  const { user, isLoading } = useApp();
+
+  if (isLoading) return <div className="flex h-screen items-center justify-center bg-slate-50 text-slate-400 font-bold uppercase tracking-widest animate-pulse">Initializing Core Systems...</div>;
+
+  if (!user) return <LoginScreen />;
+
   return (
-    <AppProvider>
-      <Layout>
-        <MainContent />
-      </Layout>
-    </AppProvider>
+    <Layout>
+      <MainContent />
+    </Layout>
   );
 };
+
+function App() {
+  return (
+    <AppProvider>
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
+    </AppProvider>
+  );
+}
 
 export default App;

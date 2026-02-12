@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { User, Product, Invoice, UserRole, PaymentStatus, ViewState, Customer, AppSettings } from '../types';
 import { storageService } from '../services/storageService';
 
@@ -153,6 +153,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider = ({ children }: { children?: ReactNode }) => {
+  const initRef = useRef(false);
   const [user, setUser] = useState<User | null>(null);
   const [currentView, setView] = useState<ViewState>('LOGIN');
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
@@ -169,31 +170,41 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
 
   const initDb = async () => {
+    if (initRef.current) return;
+    initRef.current = true;
+
     setIsLoading(true);
     setDatabaseError(false);
     try {
-      const [storedUsers, storedProducts, storedInvoices, storedCustomers, storedLogo] = await Promise.all([
-        storageService.getUsers(),
-        storageService.getProducts(),
-        storageService.getInvoices(),
-        storageService.getCustomers(),
-        storageService.getLogo()
-      ]);
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('INIT_TIMEOUT')), 2000)
+      );
+
+      const [storedUsers, storedProducts, storedInvoices, storedCustomers, storedLogo] = await Promise.race([
+        Promise.all([
+          storageService.getUsers(),
+          storageService.getProducts(),
+          storageService.getInvoices(),
+          storageService.getCustomers(),
+          storageService.getLogo()
+        ]),
+        timeoutPromise
+      ]) as [User[], Product[], Invoice[], Customer[], string];
 
       // --- AUTO-SEED LOGIC ---
-      // If connected but no products, seed the initial catalog
-      if (storedProducts.length === 0 && !databaseError) {
-        console.log("Empty DB detected. Seeding initial data...");
-        await storageService.seedData(INITIAL_PRODUCTS, INITIAL_USERS);
-        // Re-fetch after seeding
-        const reFetchedProducts = await storageService.getProducts();
+      // Modified: Only seed users if completely empty, but do NOT seed products automatically anymore
+      // This prevents deleted products from reappearing on refresh.
+      if (storedUsers.length === 0 && !databaseError) {
+        console.log("Empty Users DB detected. Seeding initial users...");
+        await storageService.seedData([], INITIAL_USERS);
         const reFetchedUsers = await storageService.getUsers();
-        setProducts(reFetchedProducts);
         setUsers(reFetchedUsers);
       } else {
         setUsers(storedUsers);
-        setProducts(storedProducts);
       }
+
+      setProducts(storedProducts);
 
       setInvoices(storedInvoices);
       setCustomers(storedCustomers);
@@ -206,20 +217,38 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
 
       setDatabaseError(false);
     } catch (err: any) {
-      if (err.message === 'DATABASE_MISSING') {
+      console.error("Initialization failed:", err);
+      if (err.message === 'DATABASE_MISSING' || err.message === 'INIT_TIMEOUT') {
         setDatabaseError(true);
         // Even if missing, we empty local state to force user to fix DB connection
         setUsers([]);
         setProducts([]);
         setInvoices([]);
       }
-      console.error("Initialization failed:", err);
     } finally {
       setIsLoading(false);
+
+      // After initialization, if user was restored from session, navigate to dashboard
+      const storedUser = localStorage.getItem('currentUser');
+      if (storedUser) {
+        setView(databaseError ? 'PRODUCTS' : 'DASHBOARD');
+      }
     }
   };
 
   useEffect(() => {
+    // Attempt to restore session
+    const storedUser = localStorage.getItem('currentUser');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        // Don't set view here - let initialization complete first
+      } catch (e) {
+        console.error("Failed to restore session", e);
+        localStorage.removeItem('currentUser');
+      }
+    }
     initDb();
   }, []);
 
@@ -227,12 +256,14 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
     const found = users.find(u => u.email === email);
     if (found) {
       setUser(found);
+      localStorage.setItem('currentUser', JSON.stringify(found));
       setView(databaseError ? 'PRODUCTS' : 'DASHBOARD');
     } else {
       // Fallback for demo if users aren't loaded yet
       if (email === 'admin@clonmel.com') {
         const demoAdmin: User = { id: 'u1', name: 'Admin User', email, role: UserRole.ADMIN, avatar: 'https://i.pravatar.cc/150?u=admin' };
         setUser(demoAdmin);
+        localStorage.setItem('currentUser', JSON.stringify(demoAdmin));
         setView(databaseError ? 'PRODUCTS' : 'DASHBOARD');
         return;
       }
@@ -242,6 +273,7 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem('currentUser');
     setView('LOGIN');
   };
 

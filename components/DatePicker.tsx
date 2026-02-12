@@ -22,8 +22,11 @@ export const DatePicker: React.FC<DatePickerProps> = ({ label, value, onChange, 
             if (!isNaN(date.getTime())) {
                 setCurrentDate(date);
             }
+        } else {
+            // If no value, reset to current month
+            setCurrentDate(new Date());
         }
-    }, [showPicker]); // Reset when opening
+    }, [showPicker, value]); // Reset when opening
 
     // Close on click outside
     useEffect(() => {
