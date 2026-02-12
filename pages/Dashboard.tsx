@@ -245,7 +245,10 @@ const Dashboard = () => {
   const [useLocalReminderMode, setUseLocalReminderMode] = useState(false);
   const localModeRef = useRef(false);
   const [trendView, setTrendView] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('daily');
-  const [dateFilter, setDateFilter] = useState<'all' | 'thisMonth' | 'lastMonth' | 'thisYear' | 'lastYear'>('all');
+  const [dateFilter, setDateFilter] = useState<'all' | 'thisMonth' | 'lastMonth' | 'thisYear' | 'lastYear' | 'custom'>('all');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+  const [showCustomDateModal, setShowCustomDateModal] = useState(false);
 
   // Filter invoices based on selected date range
   const filteredInvoices = useMemo(() => {
@@ -270,11 +273,14 @@ const Dashboard = () => {
           return date >= startOfThisYear && date <= now;
         case 'lastYear':
           return date >= startOfLastYear && date <= endOfLastYear;
+        case 'custom':
+          if (!customStartDate || !customEndDate) return true;
+          return date >= new Date(customStartDate) && date <= new Date(customEndDate);
         default:
           return true;
       }
     });
-  }, [invoices, dateFilter]);
+  }, [invoices, dateFilter, customStartDate, customEndDate]);
 
   const totalRevenue = filteredInvoices.filter(inv => inv.documentType !== 'quote').reduce((acc, inv) => acc + (Number(inv.amountPaid) || 0), 0);
   const invoiceOutstanding = filteredInvoices.filter(inv => inv.documentType !== 'quote').reduce((acc, inv) => acc + (Number(inv.balanceDue) || 0), 0);
@@ -590,6 +596,55 @@ const Dashboard = () => {
 
     <div className="max-w-7xl mx-auto space-y-8 pb-12">
       {/* Client Detail Modal */}
+      {/* Custom Date Range Modal */}
+      {showCustomDateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl space-y-6 animate-in zoom-in-95 duration-200">
+            <h3 className="text-2xl font-black text-slate-800 tracking-tight">Select Date Range</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Start Date</label>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:border-brand-500 outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">End Date</label>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:border-brand-500 outline-none transition-all"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => { setShowCustomDateModal(false); setDateFilter('all'); }}
+                className="flex-1 py-3 px-6 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (customStartDate && customEndDate) {
+                    setDateFilter('custom');
+                    setShowCustomDateModal(false);
+                  }
+                }}
+                disabled={!customStartDate || !customEndDate}
+                className="flex-1 py-3 px-6 bg-brand-600 text-white rounded-xl font-bold shadow-lg shadow-brand-500/20 hover:bg-brand-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Apply Filter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {selectedInvoiceForDetail && (
         <ClientDetailModal
           invoice={selectedInvoiceForDetail}
@@ -612,8 +667,15 @@ const Dashboard = () => {
           {/* Date Filter Dropdown */}
           <div className="relative">
             <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value as any)}
+              value={dateFilter === 'custom' ? 'custom' : dateFilter}
+              onChange={(e) => {
+                const val = e.target.value as any;
+                if (val === 'custom') {
+                  setShowCustomDateModal(true);
+                } else {
+                  setDateFilter(val);
+                }
+              }}
               className="appearance-none bg-white text-xs font-black text-slate-700 px-5 py-2.5 rounded-2xl border border-slate-200 shadow-sm outline-none focus:border-brand-500 cursor-pointer pr-8"
             >
               <option value="all">All Time</option>
@@ -621,6 +683,7 @@ const Dashboard = () => {
               <option value="lastMonth">Last Month</option>
               <option value="thisYear">This Year</option>
               <option value="lastYear">Last Year</option>
+              <option value="custom">Custom Range...</option>
             </select>
             <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 rotate-90 pointer-events-none" />
           </div>
