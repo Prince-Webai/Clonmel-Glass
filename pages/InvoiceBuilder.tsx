@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { DatePicker } from '../components/DatePicker';
 import { useApp } from '../contexts/AppContext';
-import { Invoice, InvoiceItem, PaymentStatus, Product } from '../types';
+import { Invoice, InvoiceItem, PaymentStatus, Product, Customer } from '../types';
 import { Plus, Trash2, Wand2, Save, Ruler, Calculator, Phone, Search, Check, Pencil, X } from 'lucide-react';
 import { generateInvoiceNotes } from '../services/geminiService';
 import { useToast } from '../contexts/ToastContext';
@@ -17,7 +17,7 @@ const formatCurrency = (amount: number) => {
 };
 
 const InvoiceBuilder = () => {
-  const { products, addInvoice, updateInvoice, user, setView, customers, editingInvoice, setEditingInvoice, settings } = useApp();
+  const { products, addInvoice, updateInvoice, user, setView, customers, addCustomer, editingInvoice, setEditingInvoice, settings } = useApp();
   const { showToast } = useToast();
 
   const [documentType, setDocumentType] = useState<'invoice' | 'quote'>('invoice');

@@ -23,3 +23,6 @@ SET balance_due = 0,
     amount_paid = total 
 WHERE status = 'PAID' 
   AND balance_due > 0;
+
+-- Add address_line_2 to customers table to support structured addresses
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS address_line_2 text;

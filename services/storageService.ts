@@ -219,19 +219,20 @@ export const storageService = {
     const dbCustomer = {
       id: String(customer.id),
       name: String(customer.name),
-      email: String(customer.email),
-      phone: String(customer.phone),
+      email: customer.email || null, // Send null instead of empty string
+      phone: customer.phone || null,
 
-      address: customer.address,
-      city: customer.city,
-      postal_code: customer.postalCode,
-      country: customer.country,
-      company: customer.company,
-      notes: customer.notes,
+      address: customer.address || null,
+      address_line_2: customer.addressLine2 || null, // Map addressLine2
+      city: customer.city || null,
+      postal_code: customer.postalCode || null,
+      country: customer.country || 'Ireland',
+      company: customer.company || null,
+      notes: customer.notes || null,
       tags: customer.tags || [],
       created_at: customer.createdAt,
       updated_at: customer.updatedAt,
-      created_by: customer.createdBy
+      created_by: customer.createdBy || 'system'
     };
     const { error } = await supabase.from('customers').insert([dbCustomer]);
     if (error) throw error;
@@ -240,19 +241,20 @@ export const storageService = {
   async updateCustomer(customer: Customer): Promise<void> {
     const dbCustomer = {
       name: String(customer.name),
-      email: String(customer.email),
-      phone: String(customer.phone),
+      email: customer.email || null,
+      phone: customer.phone || null,
 
-      address: customer.address,
-      city: customer.city,
-      postal_code: customer.postalCode,
-      country: customer.country,
-      company: customer.company,
-      notes: customer.notes,
+      address: customer.address || null,
+      address_line_2: customer.addressLine2 || null, // Map addressLine2
+      city: customer.city || null,
+      postal_code: customer.postalCode || null,
+      country: customer.country || 'Ireland',
+      company: customer.company || null,
+      notes: customer.notes || null,
       tags: customer.tags || [],
       updated_at: new Date().toISOString()
     };
-    const { error } = await supabase.from('customers').update(dbCustomer).eq('id', String(customer.id));
+    const { error } = await supabase.from('customers').update(dbCustomer).eq('id', customer.id);
     if (error) throw error;
   },
 
