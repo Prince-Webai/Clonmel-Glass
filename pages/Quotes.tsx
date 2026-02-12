@@ -180,7 +180,7 @@ const Quotes = () => {
                                                     const newInvoiceNumber = `INV-${new Date().getFullYear()}-${randomVal}`;
                                                     const quoteAsInvoice = {
                                                         ...quote,
-                                                        id: '', // Clear ID to create NEW invoice
+                                                        // Keep ID to update existing record instead of creating duplicate
                                                         documentType: 'invoice' as const,
                                                         invoiceNumber: newInvoiceNumber,
                                                         status: PaymentStatus.UNPAID
