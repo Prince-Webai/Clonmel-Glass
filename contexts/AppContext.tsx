@@ -181,7 +181,7 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
     try {
 
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('INIT_TIMEOUT')), 2000)
+        setTimeout(() => reject(new Error('INIT_TIMEOUT')), 10000)
       );
 
       const [storedUsers, storedProducts, storedInvoices, storedCustomers, storedLogo] = await Promise.race([

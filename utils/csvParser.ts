@@ -58,11 +58,25 @@ export const parseProductCSV = (text: string): CSVParseResult => {
 
             if (h.includes('name') || h.includes('title') || h.includes('product')) entry.name = val;
             else if (h.includes('price') || h.includes('cost') || h.includes('rate')) entry.price = val;
-            else if (h.includes('unit')) entry.unit = val;
-            else if (h.includes('category') || h.includes('type')) entry.category = val;
+            else if (h.includes('unit') || h.includes('priced by') || h.includes('pricing')) entry.unit = val;
+            else if (h.includes('category') || h.includes('type') || h.includes('single') || h.includes('double')) entry.category = val;
             else if (h.includes('desc')) entry.description = val;
             else if (h.includes('code') || h.includes('sku')) entry.sku = val;
         });
+
+        // Value Normalization
+        if (entry.unit) {
+            const u = entry.unit.toLowerCase();
+            if (u.includes('area') || u.includes('sqm') || u.includes('m2')) entry.unit = 'sqm';
+            else if (u.includes('unit') || u.includes('pcs') || u.includes('each')) entry.unit = 'pcs';
+        }
+
+        if (entry.category) {
+            // Map "Single" -> "Clear Glass" (or similar default) if strict match?
+            // Or just clean it up.
+            // For now, let's keep it raw but capitalize first letter.
+            entry.category = entry.category.charAt(0).toUpperCase() + entry.category.slice(1);
+        }
 
         // Validation
         const name = entry.name;
