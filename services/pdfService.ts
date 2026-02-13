@@ -500,7 +500,13 @@ export const generatePreviewUrl = async (invoice: Invoice, settings: AppSettings
   return doc.output('bloburl').toString();
 };
 
-export const sendInvoiceViaWebhook = async (invoice: Invoice, settings: AppSettings, logoUrl?: string, customer?: Customer): Promise<boolean> => {
+export const sendInvoiceViaWebhook = async (
+  invoice: Invoice,
+  settings: AppSettings,
+  logoUrl?: string,
+  customer?: Customer,
+  notificationType?: string // "First Mail" or "Reminder"
+): Promise<boolean> => {
   if (!settings.webhookUrl) {
     throw new Error("Webhook URL not configured in Settings.");
   }
@@ -516,6 +522,7 @@ export const sendInvoiceViaWebhook = async (invoice: Invoice, settings: AppSetti
       // Metadata
       generatedAt: new Date().toISOString(),
       webhookType: 'INVOICE_SEND',
+      notificationType: notificationType || 'Manual Send', // e.g. "First Mail", "Follow-up / Reminder"
 
       // Document
       filename: `${invoice.invoiceNumber}.pdf`,
@@ -526,27 +533,28 @@ export const sendInvoiceViaWebhook = async (invoice: Invoice, settings: AppSetti
         id: invoice.id,
         number: invoice.invoiceNumber,
         status: invoice.status,
-        dateIssued: invoice.dateIssued,
-        dueDate: invoice.dueDate,
+        dateIssued: invoice.dateIssued.split('T')[0].split('-').reverse().join('-'), // YYYY-MM-DD -> DD-MM-YYYY
+        dueDate: invoice.dueDate ? invoice.dueDate.split('T')[0].split('-').reverse().join('-') : "",
         currency: 'EUR',
         notes: invoice.notes,
+        reminderCount: invoice.reminderCount || 0, // Include count
 
-        // Financials
+        // Financials (Formatted as Strings for N8N)
         totals: {
-          subtotal: invoice.subtotal,
+          subtotal: `€${invoice.subtotal.toFixed(2)}`,
           taxRate: invoice.taxRate,
-          taxAmount: invoice.taxAmount,
-          total: invoice.total,
-          amountPaid: invoice.amountPaid,
-          balanceDue: invoice.balanceDue
+          taxAmount: `€${invoice.taxAmount.toFixed(2)}`,
+          total: `€${invoice.total.toFixed(2)}`,
+          amountPaid: `€${(invoice.amountPaid || 0).toFixed(2)}`,
+          balanceDue: `€${(invoice.balanceDue || 0).toFixed(2)}`
         },
 
         // Line Items
         items: invoice.items.map(item => ({
           description: item.description,
           quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          total: item.total,
+          unitPrice: `€${item.unitPrice.toFixed(2)}`,
+          total: `€${item.total.toFixed(2)}`,
           unit: item.unit
         }))
       },

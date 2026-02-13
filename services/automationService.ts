@@ -27,6 +27,10 @@ export const checkAndProcessAutomatedReminders = async (
     companyLogo: string | undefined,
     updateInvoice: (invoice: Invoice) => void
 ) => {
+    // AUTOMATION DISABLED BY USER REQUEST - MANUAL ONLY
+    console.log("Automated Reminder Service is DISABLED. Skipping checks.");
+    return;
+
     if (!settings.webhookUrl) return;
 
     if (getDailyEmailCount() >= MAX_DAILY_AUTOMATED_EMAILS) {

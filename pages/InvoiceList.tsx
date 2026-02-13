@@ -114,17 +114,25 @@ const InvoiceList = () => {
       alert("Please configure Webhook URL (n8n) in Settings -> Integrations first.");
       return;
     }
-    if (window.confirm(`Send invoice ${inv.invoiceNumber} to ${inv.customerEmail || 'customer'}?`)) {
+
+    const count = inv.reminderCount || 0;
+    const isFirstMail = count === 0;
+    const notificationType = isFirstMail ? "First Mail" : "Reminder";
+
+    if (window.confirm(`Send invoice ${inv.invoiceNumber} to ${inv.customerEmail || 'customer'}?\n\nType: ${notificationType}`)) {
       try {
         const fullCustomer = customers.find(c => c.id === inv.customerId);
-        await sendInvoiceViaWebhook(inv, settings, companyLogo, fullCustomer);
-        alert("Invoice sent successfully!");
+
+        // Pass notificationType to webhook
+        await sendInvoiceViaWebhook(inv, settings, companyLogo, fullCustomer, notificationType);
+
+        alert(`Invoice sent successfully! (${notificationType})`);
 
         // Update reminder count
         updateInvoice({
           ...inv,
           lastReminderSent: new Date().toISOString(),
-          reminderCount: (inv.reminderCount || 0) + 1
+          reminderCount: count + 1
         });
       } catch (e) {
         console.error(e);
