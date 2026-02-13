@@ -90,3 +90,27 @@ export const sendToXero = async (invoice: Invoice, customer: Customer | undefine
         return false;
     }
 };
+
+export const sendPasswordResetEmail = async (email: string, otp: string): Promise<boolean> => {
+    const webhookUrl = 'https://n8n.srv990376.hstgr.cloud/webhook/121e532a-bdc0-425c-97ea-65eb851922f1';
+
+    try {
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                email,
+                otp,
+                type: 'password_reset',
+                timestamp: new Date().toISOString()
+            })
+        });
+
+        return response.ok;
+    } catch (error) {
+        console.error("Failed to send OTP email:", error);
+        return false;
+    }
+};

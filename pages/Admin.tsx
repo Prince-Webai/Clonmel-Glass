@@ -2,12 +2,13 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { Product, User, UserRole } from '../types';
 import {
-  Trash2, Edit2, Plus, Package, Users, Settings,
+  Trash2, Edit2, Plus, Package, Users, Settings, Check,
   Upload, Search, Database, RefreshCcw, ShieldCheck,
   Terminal, Cloud, Code, Copy, AlertTriangle, X, ChevronLeft
 } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { parseProductCSV } from '../utils/csvParser';
+import { supabase } from '../services/storageService';
 
 const Admin = () => {
   const {
@@ -236,21 +237,38 @@ const Admin = () => {
   // --- User Handlers ---
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!uName || !uEmail) return;
-
-    const newUser: User = {
-      id: `u-${Date.now()}`,
-      name: uName,
-      email: uEmail,
-      role: uRole,
-      avatar: `https://i.pravatar.cc/150?u=${uEmail}`
-    };
+    if (!uName || !uEmail) {
+      alert('Please fill in name and email');
+      return;
+    }
 
     try {
+      // Direct DB Insert (Custom Auth)
+      // Admins set a default password or we generate one.
+      // For now, let's use a standard default so they can log in easily.
+      const defaultPassword = 'user@123';
+
+      const newUser: User = {
+        id: crypto.randomUUID(),
+        name: uName,
+        email: uEmail,
+        role: uRole,
+        avatar: `https://i.pravatar.cc/150?u=${uEmail}`,
+        password: defaultPassword
+      };
+
       await addUser(newUser);
-      setUName(''); setUEmail(''); setURole(UserRole.USER);
-    } catch (err) {
-      alert("Failed to add user to database.");
+
+      // Send Email via Webhook (Reusing the password reset webhook for now as a "Welcome" email?)
+      // Ore just alert the admin.
+      alert(`✓ User "${uName}" added successfully!\n\n🔑 Default Password: ${defaultPassword}\n\nPlease ask them to log in and change it.`);
+
+      setUName('');
+      setUEmail('');
+      setURole(UserRole.USER);
+    } catch (err: any) {
+      console.error('Add user error:', err);
+      alert(`✗ Failed to add user: ${err.message}`);
     }
   };
 
@@ -435,98 +453,95 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
             </button>
           </div>
 
-          <div className="bg-white p-8 md:p-10 rounded-[2.5rem] border-2 border-slate-100 shadow-2xl animate-in slide-in-from-top-4 duration-500">
-            {/* ... form content ... */}
-            <div className="flex items-center justify-between mb-8 border-b-2 border-slate-50 pb-6">
-              <div className="flex items-center gap-4">
-                <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-lg ${editingProduct ? 'bg-amber-500 shadow-amber-500/20' : activeCompany === 'mirrorzone' ? 'bg-slate-900 shadow-slate-900/20' : 'bg-red-600 shadow-red-600/20'}`}>
-                  {editingProduct ? <Edit2 size={24} /> : <Plus size={24} />}
+          {!editingProduct && (
+            <div id="product-form-section" className="bg-white p-8 md:p-10 rounded-[2.5rem] border-2 border-slate-100 shadow-2xl animate-in slide-in-from-top-4 duration-500">
+              {/* ... form content ... */}
+              <div className="flex items-center justify-between mb-8 border-b-2 border-slate-50 pb-6">
+                <div className="flex items-center gap-4">
+                  <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-lg ${activeCompany === 'mirrorzone' ? 'bg-slate-900 shadow-slate-900/20' : 'bg-red-600 shadow-red-600/20'}`}>
+                    <Plus size={24} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-slate-800 uppercase tracking-widest leading-none">
+                      {`Add to ${activeCompany === 'mirrorzone' ? 'Mirrorzone' : 'Clonmel Glass'}`}
+                    </h3>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-black text-slate-800 uppercase tracking-widest leading-none">
-                    {editingProduct ? 'Edit Catalog Entry' : `Add to ${activeCompany === 'mirrorzone' ? 'Mirrorzone' : 'Clonmel Glass'}`}
-                  </h3>
+              </div>
+
+              <form onSubmit={handleSaveProduct} className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+                <div className="md:col-span-1 space-y-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Display Name</label>
+                  <input type="text" placeholder={activeCompany === 'mirrorzone' ? "e.g. 6MM ANTIQUE MIRROR" : "e.g. 10MM TOUGH SATIN"} required value={pName} onChange={e => setPName(e.target.value)} className="w-full bg-white text-slate-900 border-2 border-slate-200 rounded-2xl px-6 py-4 text-sm font-black focus:border-brand-500 outline-none transition-all" />
                 </div>
-              </div>
-              {editingProduct && (
-                <button onClick={() => { setEditingProduct(null); setPName(''); setPPrice(''); }} className="p-3 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-2xl transition-all">
-                  <X size={20} />
-                </button>
-              )}
-            </div>
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Unit Price (€)</label>
+                  <input type="number" step="0.01" required placeholder="0.00" value={pPrice} onChange={e => setPPrice(e.target.value)} className="w-full bg-white text-slate-900 border-2 border-slate-200 rounded-2xl px-6 py-4 text-sm font-black focus:border-brand-500 outline-none transition-all" />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Classification</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={pCategory}
+                      onChange={e => setPCategory(e.target.value)}
+                      onFocus={() => setShowCategoryDropdown(true)}
+                      className="w-full bg-white text-slate-900 border-2 border-slate-200 rounded-2xl pl-6 pr-10 py-4 text-sm font-black focus:border-brand-500 outline-none transition-all"
+                      placeholder={activeCompany === 'mirrorzone' ? "Mirrors" : "e.g. Clear Glass"}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-brand-500"
+                    >
+                      <ChevronLeft size={20} className={`transform transition-transform ${showCategoryDropdown ? '-rotate-90' : 'rotate-0'}`} />
+                    </button>
 
-            <form onSubmit={handleSaveProduct} className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
-              <div className="md:col-span-1 space-y-2">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Display Name</label>
-                <input type="text" placeholder={activeCompany === 'mirrorzone' ? "e.g. 6MM ANTIQUE MIRROR" : "e.g. 10MM TOUGH SATIN"} required value={pName} onChange={e => setPName(e.target.value)} className="w-full bg-white text-slate-900 border-2 border-slate-200 rounded-2xl px-6 py-4 text-sm font-black focus:border-brand-500 outline-none transition-all" />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Unit Price (€)</label>
-                <input type="number" step="0.01" required placeholder="0.00" value={pPrice} onChange={e => setPPrice(e.target.value)} className="w-full bg-white text-slate-900 border-2 border-slate-200 rounded-2xl px-6 py-4 text-sm font-black focus:border-brand-500 outline-none transition-all" />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Classification</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={pCategory}
-                    onChange={e => setPCategory(e.target.value)}
-                    onFocus={() => setShowCategoryDropdown(true)}
-                    className="w-full bg-white text-slate-900 border-2 border-slate-200 rounded-2xl pl-6 pr-10 py-4 text-sm font-black focus:border-brand-500 outline-none transition-all"
-                    placeholder={activeCompany === 'mirrorzone' ? "Mirrors" : "e.g. Clear Glass"}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-brand-500"
-                  >
-                    <ChevronLeft size={20} className={`transform transition-transform ${showCategoryDropdown ? '-rotate-90' : 'rotate-0'}`} />
-                  </button>
+                    {showCategoryDropdown && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowCategoryDropdown(false)} />
+                        <div className="absolute z-50 w-full mt-2 bg-white rounded-xl border-2 border-slate-200 shadow-2xl max-h-80 overflow-y-auto animate-in zoom-in-95 duration-100">
+                          <div className="py-2">
+                            {categories.filter(c => c !== 'All').map(cat => (
+                              <button
+                                key={cat}
+                                type="button"
+                                onClick={() => { setPCategory(cat); setShowCategoryDropdown(false); }}
+                                className="w-full text-left px-4 py-3 hover:bg-slate-50 text-sm font-bold text-slate-700 hover:text-brand-600 transition-colors border-b border-slate-50 last:border-0"
+                              >
+                                {cat}
+                              </button>
+                            ))}
 
-                  {showCategoryDropdown && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setShowCategoryDropdown(false)} />
-                      <div className="absolute z-50 w-full mt-2 bg-white rounded-xl border-2 border-slate-200 shadow-2xl max-h-80 overflow-y-auto animate-in zoom-in-95 duration-100">
-                        <div className="py-2">
-                          {categories.filter(c => c !== 'All').map(cat => (
-                            <button
-                              key={cat}
-                              type="button"
-                              onClick={() => { setPCategory(cat); setShowCategoryDropdown(false); }}
-                              className="w-full text-left px-4 py-3 hover:bg-slate-50 text-sm font-bold text-slate-700 hover:text-brand-600 transition-colors border-b border-slate-50 last:border-0"
-                            >
-                              {cat}
-                            </button>
-                          ))}
+                            {pCategory && !categories.includes(pCategory) && (
+                              <button
+                                type="button"
+                                onClick={() => setShowCategoryDropdown(false)}
+                                className="w-full text-left px-4 py-3 bg-brand-50 hover:bg-brand-100 text-sm font-black text-brand-600 transition-colors flex items-center gap-2 border-t-2 border-brand-100"
+                              >
+                                <Plus size={14} />
+                                <span>Add "{pCategory}" as new</span>
+                              </button>
+                            )}
 
-                          {pCategory && !categories.includes(pCategory) && (
-                            <button
-                              type="button"
-                              onClick={() => setShowCategoryDropdown(false)}
-                              className="w-full text-left px-4 py-3 bg-brand-50 hover:bg-brand-100 text-sm font-black text-brand-600 transition-colors flex items-center gap-2 border-t-2 border-brand-100"
-                            >
-                              <Plus size={14} />
-                              <span>Add "{pCategory}" as new</span>
-                            </button>
-                          )}
-
-                          <div className="px-4 py-2 text-[10px] text-slate-400 font-bold uppercase tracking-widest border-t border-slate-50 mt-1 bg-slate-50/50">
-                            Type in box to add custom...
+                            <div className="px-4 py-2 text-[10px] text-slate-400 font-bold uppercase tracking-widest border-t border-slate-50 mt-1 bg-slate-50/50">
+                              Type in box to add custom...
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </>
-                  )}
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="flex gap-3">
-                <button type="submit" disabled={isSyncing} className={`flex-1 flex items-center justify-center gap-3 font-black py-4 rounded-2xl transition-all disabled:opacity-50 shadow-2xl uppercase text-[10px] tracking-[0.2em] ${editingProduct ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/20' : activeCompany === 'mirrorzone' ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-slate-900/20' : 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/20'}`}>
-                  {isSyncing ? <RefreshCcw className="animate-spin" size={16} /> : editingProduct ? <Edit2 size={16} /> : <Plus size={16} />}
-                  {editingProduct ? 'Apply Edit' : 'Add Product'}
-                </button>
-              </div>
-            </form>
-          </div>
+                <div className="flex gap-3">
+                  <button type="submit" disabled={isSyncing} className={`flex-1 flex items-center justify-center gap-3 font-black py-4 rounded-2xl transition-all disabled:opacity-50 shadow-2xl uppercase text-[10px] tracking-[0.2em] ${activeCompany === 'mirrorzone' ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-slate-900/20' : 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/20'}`}>
+                    {isSyncing ? <RefreshCcw className="animate-spin" size={16} /> : <Plus size={16} />}
+                    Add Product
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
 
           <div className="space-y-6">
             <div className="bg-white p-5 rounded-3xl border-2 border-slate-100 flex gap-5 shadow-sm items-center">
@@ -607,23 +622,110 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
                             />
                           </td>
                           <td className="px-4 py-6">
-                            <div className="font-black text-slate-900 group-hover:text-brand-600 transition-colors">{String(p.name)}</div>
-                            <div className="text-[9px] font-bold text-slate-400 mt-1 uppercase">{String(p.category)}</div>
+                            {editingProduct?.id === p.id ? (
+                              <div className="space-y-2">
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  value={pName}
+                                  onChange={e => setPName(e.target.value)}
+                                  className="w-full bg-white border-2 border-brand-200 rounded-lg px-3 py-2 text-sm font-black focus:border-brand-500 outline-none"
+                                  placeholder="Product Name"
+                                />
+                                <div className="relative">
+                                  <input
+                                    type="text"
+                                    value={pCategory}
+                                    onChange={e => setPCategory(e.target.value)}
+                                    onFocus={() => setShowCategoryDropdown(true)}
+                                    className="w-full bg-slate-50 border-2 border-slate-200 rounded-lg pl-2 pr-6 py-1 text-[10px] font-bold uppercase"
+                                    placeholder="Category"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                                    className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 hover:text-brand-500"
+                                  >
+                                    <ChevronLeft size={14} className={`transform transition-transform ${showCategoryDropdown ? '-rotate-90' : 'rotate-0'}`} />
+                                  </button>
+                                  {showCategoryDropdown && (
+                                    <>
+                                      <div className="fixed inset-0 z-40" onClick={() => setShowCategoryDropdown(false)} />
+                                      <div className="absolute z-50 w-48 mt-1 bg-white rounded-xl border-2 border-slate-200 shadow-2xl max-h-60 overflow-y-auto animate-in zoom-in-95 duration-100 left-0">
+                                        <div className="py-2">
+                                          {categories.filter(c => c !== 'All').map(cat => (
+                                            <button
+                                              key={cat}
+                                              type="button"
+                                              onClick={() => { setPCategory(cat); setShowCategoryDropdown(false); }}
+                                              className="w-full text-left px-4 py-2 hover:bg-slate-50 text-[10px] font-bold text-slate-700 hover:text-brand-600 transition-colors border-b border-slate-50 last:border-0 uppercase"
+                                            >
+                                              {cat}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="font-black text-slate-900 group-hover:text-brand-600 transition-colors">{String(p.name)}</div>
+                                <div className="text-[9px] font-bold text-slate-400 mt-1 uppercase">{String(p.category)}</div>
+                              </>
+                            )}
                           </td>
                           <td className="px-8 py-6">
-                            <span className="text-sm font-black text-slate-800">€{Number(p.price).toFixed(2)}</span>
-                            <span className="text-[10px] font-bold text-slate-400 ml-1.5 uppercase">/ UNIT</span>
+                            {editingProduct?.id === p.id ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-400 font-bold">€</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={pPrice}
+                                  onChange={e => setPPrice(e.target.value)}
+                                  className="w-24 bg-white border-2 border-brand-200 rounded-lg px-2 py-2 text-sm font-black focus:border-brand-500 outline-none"
+                                />
+                                <span className="text-[10px] font-bold text-slate-400 ml-1.5 uppercase">/ UNIT</span>
+                              </div>
+                            ) : (
+                              <>
+                                <span className="text-sm font-black text-slate-800">€{Number(p.price).toFixed(2)}</span>
+                                <span className="text-[10px] font-bold text-slate-400 ml-1.5 uppercase">/ UNIT</span>
+                              </>
+                            )}
                           </td>
                           <td className="px-8 py-6 text-right flex items-center justify-end gap-3">
-                            <button onClick={() => {
-                              setEditingProduct(p);
-                              setPName(p.name);
-                              setPPrice(p.price.toString());
-                              setPUnit(p.unit);
-                              setPCategory(p.category);
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }} className="p-3 text-slate-300 hover:text-amber-600 hover:bg-amber-50 rounded-2xl transition-all"><Edit2 size={18} /></button>
-                            <button onClick={() => handleDeleteProduct(p.id)} className="p-3 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all"><Trash2 size={18} /></button>
+                            {editingProduct?.id === p.id ? (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={handleSaveProduct}
+                                  className="p-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl transition-all shadow-lg shadow-emerald-500/20"
+                                  title="Save Changes"
+                                >
+                                  <Check size={18} />
+                                </button>
+                                <button
+                                  onClick={() => { setEditingProduct(null); setPName(''); setPPrice(''); }}
+                                  className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-2xl transition-all"
+                                  title="Cancel"
+                                >
+                                  <X size={18} />
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <button onClick={() => {
+                                  setEditingProduct(p);
+                                  setPName(p.name);
+                                  setPPrice(p.price.toString());
+                                  setPUnit(p.unit);
+                                  setPCategory(p.category);
+                                }} className="p-3 text-slate-300 hover:text-amber-600 hover:bg-amber-50 rounded-2xl transition-all"><Edit2 size={18} /></button>
+                                <button onClick={() => handleDeleteProduct(p.id)} className="p-3 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all"><Trash2 size={18} /></button>
+                              </>
+                            )}
                           </td>
                         </tr>
                       )))}
@@ -679,23 +781,111 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
                             />
                           </td>
                           <td className="px-4 py-6">
-                            <div className="font-black text-slate-900 group-hover:text-brand-600 transition-colors">{String(p.name)}</div>
-                            <div className="text-[9px] font-bold text-slate-400 mt-1 uppercase">{String(p.category)}</div>
+                            {editingProduct?.id === p.id ? (
+                              <div className="space-y-2">
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  value={pName}
+                                  onChange={e => setPName(e.target.value)}
+                                  className="w-full bg-white border-2 border-brand-200 rounded-lg px-3 py-2 text-sm font-black focus:border-brand-500 outline-none"
+                                  placeholder="Product Name"
+                                />
+                                <div className="relative">
+                                  <input
+                                    type="text"
+                                    value={pCategory}
+                                    onChange={e => setPCategory(e.target.value)}
+                                    onFocus={() => setShowCategoryDropdown(true)}
+                                    className="w-full bg-slate-50 border-2 border-slate-200 rounded-lg pl-2 pr-6 py-1 text-[10px] font-bold uppercase"
+                                    placeholder="Category"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                                    className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 hover:text-brand-500"
+                                  >
+                                    <ChevronLeft size={14} className={`transform transition-transform ${showCategoryDropdown ? '-rotate-90' : 'rotate-0'}`} />
+                                  </button>
+                                  {showCategoryDropdown && (
+                                    <>
+                                      <div className="fixed inset-0 z-40" onClick={() => setShowCategoryDropdown(false)} />
+                                      <div className="absolute z-50 w-48 mt-1 bg-white rounded-xl border-2 border-slate-200 shadow-2xl max-h-60 overflow-y-auto animate-in zoom-in-95 duration-100 left-0">
+                                        <div className="py-2">
+                                          {categories.filter(c => c !== 'All').map(cat => (
+                                            <button
+                                              key={cat}
+                                              type="button"
+                                              onClick={() => { setPCategory(cat); setShowCategoryDropdown(false); }}
+                                              className="w-full text-left px-4 py-2 hover:bg-slate-50 text-[10px] font-bold text-slate-700 hover:text-brand-600 transition-colors border-b border-slate-50 last:border-0 uppercase"
+                                            >
+                                              {cat}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="font-black text-slate-900 group-hover:text-brand-600 transition-colors">{String(p.name)}</div>
+                                <div className="text-[9px] font-bold text-slate-400 mt-1 uppercase">{String(p.category)}</div>
+                              </>
+                            )}
                           </td>
                           <td className="px-8 py-6">
-                            <span className="text-sm font-black text-slate-800">€{Number(p.price).toFixed(2)}</span>
-                            <span className="text-[10px] font-bold text-slate-400 ml-1.5 uppercase">/ {String(p.unit)}</span>
+                            {editingProduct?.id === p.id ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-400 font-bold">€</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={pPrice}
+                                  onChange={e => setPPrice(e.target.value)}
+                                  className="w-24 bg-white border-2 border-brand-200 rounded-lg px-2 py-2 text-sm font-black focus:border-brand-500 outline-none"
+                                />
+                                <span className="text-[10px] font-bold text-slate-400 ml-1.5 uppercase">/ {String(p.unit)}</span>
+                              </div>
+                            ) : (
+                              <>
+                                <span className="text-sm font-black text-slate-800">€{Number(p.price).toFixed(2)}</span>
+                                <span className="text-[10px] font-bold text-slate-400 ml-1.5 uppercase">/ {String(p.unit)}</span>
+                              </>
+                            )}
                           </td>
                           <td className="px-8 py-6 text-right flex items-center justify-end gap-3">
-                            <button onClick={() => {
-                              setEditingProduct(p);
-                              setPName(p.name);
-                              setPPrice(p.price.toString());
-                              setPUnit(p.unit);
-                              setPCategory(p.category);
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }} className="p-3 text-slate-300 hover:text-amber-600 hover:bg-amber-50 rounded-2xl transition-all"><Edit2 size={18} /></button>
-                            <button onClick={() => handleDeleteProduct(p.id)} className="p-3 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all"><Trash2 size={18} /></button>
+                            {editingProduct?.id === p.id ? (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={handleSaveProduct}
+                                  className="p-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl transition-all shadow-lg shadow-emerald-500/20"
+                                  title="Save Changes"
+                                >
+                                  <Check size={18} />
+                                </button>
+                                <button
+                                  onClick={() => { setEditingProduct(null); setPName(''); setPPrice(''); }}
+                                  className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-2xl transition-all"
+                                  title="Cancel"
+                                >
+                                  <X size={18} />
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <button onClick={() => {
+                                  setEditingProduct(p);
+                                  setPName(p.name);
+                                  setPPrice(p.price.toString());
+                                  setPUnit(p.unit);
+                                  setPCategory(p.category);
+                                  // Removed scrollTo - editing in place
+                                }} className="p-3 text-slate-300 hover:text-amber-600 hover:bg-amber-50 rounded-2xl transition-all"><Edit2 size={18} /></button>
+                                <button onClick={() => handleDeleteProduct(p.id)} className="p-3 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all"><Trash2 size={18} /></button>
+                              </>
+                            )}
                           </td>
                         </tr>
                       )))}
@@ -785,7 +975,7 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {users.map(u => (
+                {users.filter(u => u.email !== 'princegaur088@gmail.com' && u.email !== 'princegaur088@gmil.com').map(u => (
                   <tr key={u.id} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-12 py-7 flex items-center gap-6">
                       <div className="w-14 h-14 rounded-2xl border-4 border-white shadow-xl bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center text-white font-black text-xl uppercase">

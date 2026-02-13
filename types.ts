@@ -20,6 +20,7 @@ export interface User {
   email: string;
   role: UserRole;
   avatar?: string;
+  password?: string; // For custom simple auth
 }
 
 export interface Product {

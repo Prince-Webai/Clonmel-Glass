@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { User, Product, Invoice, UserRole, PaymentStatus, ViewState, Customer, AppSettings } from '../types';
-import { storageService } from '../services/storageService';
+import { storageService, supabase } from '../services/storageService';
+import { sendPasswordResetEmail } from '../services/integrationService';
 
 // Initial Data for Seeding
 const INITIAL_USERS: User[] = [
@@ -117,10 +118,12 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 interface AppContextType {
   user: User | null;
-  login: (email: string) => void;
-  logout: () => void;
+  login: (email: string, password?: string) => Promise<void>;
+  logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   users: User[];
   addUser: (user: User) => Promise<void>;
+  updateUser: (user: User) => Promise<void>;
   deleteUser: (id: string) => Promise<void>;
   products: Product[];
   addProduct: (product: Product) => Promise<void>;
@@ -252,36 +255,129 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
     initDb();
   }, []);
 
-  const login = (email: string) => {
-    const found = users.find(u => u.email === email);
-    if (found) {
-      setUser(found);
-      localStorage.setItem('currentUser', JSON.stringify(found));
-      setView(databaseError ? 'PRODUCTS' : 'DASHBOARD');
-    } else {
-      // Fallback for demo if users aren't loaded yet
-      if (email === 'admin@clonmel.com') {
-        const demoAdmin: User = { id: 'u1', name: 'Admin User', email, role: UserRole.ADMIN, avatar: 'https://i.pravatar.cc/150?u=admin' };
-        setUser(demoAdmin);
-        localStorage.setItem('currentUser', JSON.stringify(demoAdmin));
-        setView(databaseError ? 'PRODUCTS' : 'DASHBOARD');
-        return;
-      }
-      alert("User not found.");
+  // --- Custom Auth Logic (Replaces Supabase Auth) ---
+  const login = async (email: string, password?: string) => {
+    if (!password) throw new Error("Password required");
+
+    // Simple textual check against public.users table
+    // Note: In production, passwords should be hashed.
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .eq('password', password)
+      .single();
+
+    if (error || !data) {
+      throw new Error("Invalid email or password");
     }
+
+    const user = data as User;
+    setUser(user);
+    localStorage.setItem('currentUser', JSON.stringify(user));
+    setView('DASHBOARD');
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // No Supabase SignOut needed for custom auth
     setUser(null);
     localStorage.removeItem('currentUser');
     setView('LOGIN');
   };
+
+  const resetPassword = async (email: string) => {
+    // 1. Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+
+    // 2. Store in DB
+    // We update the user record with the OTP.
+    // If user doesn't exist, this might fail or return 0 rows.
+    // We should check existence first to be polite, or just try update.
+    const { error, count } = await supabase
+      .from('users')
+      .update({
+        reset_otp: otp,
+        reset_otp_expires: expiresAt
+      } as any) // Type assertion as these cols are new
+      .eq('email', email)
+      .select(); // to get count
+
+    if (error) throw error;
+    // if (count === 0) throw new Error("User not found"); // Supabase update doesn't always return count unless asked.
+
+    // 3. Send Email via Webhook
+    // In a real app, call integrationService.sendEmail(email, otp)
+    try {
+      const emailSent = await sendPasswordResetEmail(email, otp);
+      if (emailSent) {
+        console.log(`[EMAIL SENT] To: ${email}, OTP: ${otp}`);
+        // alert(`(Test Mode) OTP for ${email}: ${otp}\n\nCheck console for details.`);
+      } else {
+        throw new Error("Failed to send OTP email");
+      }
+    } catch (e) {
+      console.error("Email send failed", e);
+      // Fallback for demo if webhook fails? No, let's just error.
+      throw new Error("Failed to send OTP email. Please try again.");
+    }
+  };
+
+  // Verify OTP and Set New Password
+  const verifyOtpAndReset = async (email: string, otp: string, newPassword: string) => {
+    // 1. Check if OTP matches and is not expired
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (error || !data) throw new Error("User not found");
+
+    const user = data as any; // Access custom columns
+    const now = Date.now();
+
+    if (user.reset_otp !== otp) {
+      throw new Error("Invalid OTP");
+    }
+
+    if (parseInt(user.reset_otp_expires) < now) {
+      throw new Error("OTP Expired");
+    }
+
+    // 2. Update Password and Clear OTP
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({
+        password: newPassword,
+        reset_otp: null,
+        reset_otp_expires: null
+      } as any)
+      .eq('id', user.id);
+
+    if (updateError) throw updateError;
+  };
+
+  // Remove the Supabase Auth Listener useEffect entirely
+  // and replace with simple session checks in the main init or separate effect.
+  // We already handle localStorage restore in the first useEffect.
+
 
   const addUser = async (u: User) => {
     setIsSyncing(true);
     try {
       await storageService.addUser(u);
       setUsers(prev => [...prev, u]);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const updateUser = async (u: User) => {
+    setIsSyncing(true);
+    try {
+      await storageService.updateUser(u);
+      setUsers(prev => prev.map(user => user.id === u.id ? u : user));
     } finally {
       setIsSyncing(false);
     }
@@ -428,8 +524,8 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
 
   return (
     <AppContext.Provider value={{
-      user, login, logout,
-      users, addUser, deleteUser,
+      user, login, logout, resetPassword, verifyOtpAndReset,
+      users, addUser, updateUser, deleteUser,
       products, addProduct, updateProduct, deleteProduct,
       invoices, addInvoice, updateInvoice, deleteInvoice,
       customers, addCustomer, updateCustomer, deleteCustomer,

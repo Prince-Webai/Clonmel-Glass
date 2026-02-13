@@ -174,6 +174,11 @@ export const storageService = {
     if (error) throw error;
   },
 
+  async updateUser(user: User): Promise<void> {
+    const { error } = await supabase.from('users').update(user).eq('id', user.id);
+    if (error) throw error;
+  },
+
   async deleteUser(id: string): Promise<void> {
     const { error } = await supabase.from('users').delete().eq('id', id);
     if (error) throw error;
