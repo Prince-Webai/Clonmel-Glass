@@ -201,7 +201,9 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
   // Col 3: Company Details
   const col3X = margin + (colWidth * 2);
   doc.setFont("helvetica", "bold");
-  const companyName = isMirrorzone ? "MirrorZone" : "Clonmel Glass & Mirrors Ltd";
+  const companyName = isMirrorzone
+    ? (settings.mirrorZoneName || "MirrorZone")
+    : (settings.companyName || "Clonmel Glass & Mirrors Ltd");
   doc.text(companyName, col3X, yPos);
 
   doc.setFont("helvetica", "normal");
@@ -238,7 +240,7 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
     { label: `${docTitle} Date`, val: new Date(invoice.dateIssued).toLocaleDateString('en-GB') },
     { label: "Ref. No.", val: invoice.invoiceNumber },
     { label: "Account Manager", val: "Admin" },
-    { label: "VAT No.", val: "IE8252470Q" },
+    { label: "VAT No.", val: settings.vatNumber || "IE8252470Q" },
     { label: "Payment Due", val: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-GB') : "On Receipt" },
     { label: "Credit Terms", val: "30 Days" }
   ];

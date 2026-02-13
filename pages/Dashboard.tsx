@@ -244,7 +244,7 @@ const Dashboard = () => {
   const localReminderTracker = useRef<Record<string, string>>({});
   const [useLocalReminderMode, setUseLocalReminderMode] = useState(false);
   const localModeRef = useRef(false);
-  const [trendView, setTrendView] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('daily');
+  const [trendView, setTrendView] = useState<'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'>('daily');
   const [dateFilter, setDateFilter] = useState<'all' | 'thisMonth' | 'lastMonth' | 'thisYear' | 'lastYear' | 'custom'>('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -536,6 +536,66 @@ const Dashboard = () => {
         name: week.label,
         amount: dataDisplay[week.key]
       }));
+    } else if (trendView === 'custom') {
+      // Custom Range View - Daily granularity
+      if (!customStartDate || !customEndDate) return [];
+
+      const days = [];
+
+      // Helper to parse 'YYYY-MM-DD' as local midnight
+      const parseLocal = (dateStr: string) => {
+        if (!dateStr) return new Date();
+        if (dateStr.includes('T')) return new Date(dateStr);
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        }
+        return new Date(dateStr);
+      };
+
+      // Helper to strictly format YYYY-MM-DD in local time
+      const formatDateKey = (d: Date) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
+      const start = parseLocal(customStartDate);
+      const end = parseLocal(customEndDate);
+      // Ensure end date includes the full day
+      end.setHours(23, 59, 59, 999);
+
+      // Create stats for every day in the range
+      const current = new Date(start);
+      while (current <= end) {
+        const key = formatDateKey(current);
+        dataDisplay[key] = 0;
+        days.push({ key, label: current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) });
+        current.setDate(current.getDate() + 1);
+      }
+
+      relevantInvoices.forEach(inv => {
+        const dateToUse = (inv.status === PaymentStatus.PAID && inv.paymentDate) ? inv.paymentDate : inv.dateIssued;
+
+        let date: Date;
+        if (dateToUse && !dateToUse.includes('T') && dateToUse.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          date = parseLocal(dateToUse);
+        } else {
+          date = new Date(dateToUse);
+        }
+
+        const key = formatDateKey(date);
+
+        if (dataDisplay[key] !== undefined) {
+          dataDisplay[key] += Number(inv.total);
+        }
+      });
+
+      return days.map(day => ({
+        name: day.label,
+        amount: dataDisplay[day.key]
+      }));
     } else {
       // Daily view - Last 14 days
       const days = [];
@@ -590,7 +650,7 @@ const Dashboard = () => {
         amount: dataDisplay[day.key] // Aggregated amount
       }));
     }
-  }, [invoices, trendView]);
+  }, [invoices, trendView, customStartDate, customEndDate]);
 
   return (
 
@@ -837,6 +897,16 @@ const Dashboard = () => {
                 >
                   Yearly
                 </button>
+                <div className="w-px h-4 bg-slate-300 mx-1"></div>
+                <button
+                  onClick={() => {
+                    setTrendView('custom');
+                    setShowCustomDateModal(true);
+                  }}
+                  className={`px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-md transition-all ${trendView === 'custom' ? 'bg-white text-brand-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Custom
+                </button>
               </div>
             </div>
             <div className="p-6 h-80">
@@ -909,6 +979,8 @@ const Dashboard = () => {
           </div>
         )
       }
+
+
     </div >
   );
 };

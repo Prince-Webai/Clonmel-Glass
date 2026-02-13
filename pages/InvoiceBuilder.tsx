@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { DatePicker } from '../components/DatePicker';
 import { useApp } from '../contexts/AppContext';
 import { Invoice, InvoiceItem, PaymentStatus, Product, Customer } from '../types';
-import { Plus, Trash2, Wand2, Save, Ruler, Calculator, Phone, Search, Check, Pencil, X } from 'lucide-react';
+import { Plus, Trash2, Save, Printer, Send, Calculator, Pencil, X, Check, Eye, Wand2, Phone, Ruler, ChevronDown, Search } from 'lucide-react';
 import { generateInvoiceNotes } from '../services/geminiService';
 import { useToast } from '../contexts/ToastContext';
 
@@ -90,6 +90,8 @@ const InvoiceBuilder = () => {
     }
   }, [editingInvoice]);
 
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [customDescription, setCustomDescription] = useState('');
   const [quantity, setQuantity] = useState<number | string>(1);
   const [width, setWidth] = useState<string>('');
@@ -594,42 +596,104 @@ const InvoiceBuilder = () => {
           <div className="mb-8 p-6 bg-slate-50 rounded-2xl border-2 border-slate-100 space-y-6">
             <div className="flex flex-col md:flex-row gap-6 items-end">
               <div className="flex-1 w-full">
-                <label className="block text-xs font-black text-slate-600 mb-3 uppercase tracking-wider flex items-center gap-2">
-                  <span className="flex items-center justify-center h-5 w-5 bg-brand-600 text-white rounded-full text-[10px]">1</span>
+                <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-wider flex items-center gap-2">
+                  <span className="flex items-center justify-center h-4 w-4 bg-brand-600 text-white rounded-full text-[8px]">1</span>
                   Select Product from Catalog
                 </label>
-                <select
-                  className="w-full border-2 border-slate-200 text-slate-900 rounded-xl px-5 py-4 text-base font-bold focus:outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 bg-white shadow-sm transition-all appearance-none"
-                  value={selectedProductId}
-                  onChange={e => {
-                    const id = e.target.value;
-                    setSelectedProductId(id);
-                    const prod = products.find(p => p.id === id);
-                    if (prod) {
-                      setCustomDescription(prod.name);
-                      // Force unit calculation if not mirrorzone, otherwise simple quantity
-                      if (prod.unit === 'sqm' && company !== 'mirrorzone') {
-                        setShowCalculator(true);
-                        setQuantity(0);
-                      } else {
-                        setShowCalculator(false);
-                        setQuantity(1);
-                      }
-                    } else {
-                      setCustomDescription('');
-                    }
-                  }}
-                >
-                  <option value="">Search all glass & mirrors...</option>
-                  {Object.entries(groupedProducts).map(([cat, prods]) => (
-                    <optgroup key={cat} label={cat} className="text-slate-900 font-bold bg-slate-50">
-                      {(prods as Product[]).map(p => (
-                        <option key={p.id} value={p.id} className="text-slate-900 font-medium">{p.name} — {formatCurrency(p.price)}/{p.unit}</option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-                <div className="absolute right-0 top-0 -mt-8">
+                {/* Custom Dropdown Trigger */}
+                <div className="relative">
+                  <button
+                    onClick={() => { setIsDropdownOpen(!isDropdownOpen); setSearchQuery(''); }}
+                    className="w-full border-2 border-slate-200 text-slate-700 rounded-lg px-3 py-2.5 text-sm font-medium bg-white shadow-sm transition-all focus:outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 flex items-center justify-between group"
+                  >
+                    <span className={selectedProductId ? "text-slate-900" : "text-slate-400"}>
+                      {selectedProductId
+                        ? products.find(p => p.id === selectedProductId)?.name
+                        : "Search all glass & mirrors..."}
+                    </span>
+                    <ChevronDown size={16} className={`text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {isDropdownOpen && (
+                    <>
+                      {/* Backdrop to close on click outside */}
+                      <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)} />
+
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border-2 border-slate-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                        {/* Search Bar */}
+                        <div className="p-2 border-b border-slate-50 sticky top-0 bg-white">
+                          <div className="relative">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                              autoFocus
+                              type="text"
+                              placeholder="Type to filter..."
+                              className="w-full bg-slate-50 text-slate-900 rounded-lg pl-9 pr-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-500/10"
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        </div>
+
+                        {/* List */}
+                        <div className="max-h-60 overflow-y-auto p-1">
+                          {Object.entries(groupedProducts).map(([cat, prods]) => {
+                            const filteredProds = (prods as Product[]).filter(p =>
+                              p.name.toLowerCase().includes(searchQuery.toLowerCase())
+                            );
+
+                            if (filteredProds.length === 0) return null;
+
+                            return (
+                              <div key={cat} className="mb-1">
+                                <div className="px-3 py-1.5 text-[10px] uppercase tracking-widest font-black text-slate-400 bg-slate-50/50 rounded-md mb-1 mx-1">
+                                  {cat}
+                                </div>
+                                {filteredProds.map(p => (
+                                  <button
+                                    key={p.id}
+                                    onClick={() => {
+                                      setSelectedProductId(p.id);
+                                      const prod = products.find(pr => pr.id === p.id);
+                                      if (prod) {
+                                        setCustomDescription(prod.name);
+                                        if (prod.unit === 'sqm' && company !== 'mirrorzone') {
+                                          setShowCalculator(true);
+                                          setQuantity(0);
+                                        } else {
+                                          setShowCalculator(false);
+                                          setQuantity(1);
+                                        }
+                                      }
+                                      setIsDropdownOpen(false);
+                                    }}
+                                    className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-brand-50 hover:text-brand-700 transition-colors flex items-center justify-between group"
+                                  >
+                                    <span>{p.name}</span>
+                                    <span className="text-xs text-slate-400 font-mono group-hover:text-brand-500">
+                                      {formatCurrency(p.price)}/{p.unit}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            );
+                          })}
+
+                          {Object.values(groupedProducts).every(group =>
+                            (group as Product[]).filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0
+                          ) && (
+                              <div className="p-4 text-center text-slate-400 text-xs font-medium italic">
+                                No products found.
+                              </div>
+                            )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="absolute right-0 top-0 -mt-7">
                   <button
                     onClick={() => setView('PRODUCTS')}
                     className="text-[10px] font-bold text-brand-600 hover:text-brand-700 hover:underline flex items-center gap-1"
@@ -643,23 +707,23 @@ const InvoiceBuilder = () => {
 
 
               {!showCalculator && selectedProductId && (
-                <div className="flex gap-4 w-full md:w-auto animate-in zoom-in duration-200">
-                  <div className="w-24">
-                    <label className="block text-xs font-black text-slate-600 mb-3 uppercase tracking-wider">Quantity</label>
+                <div className="flex gap-3 w-full md:w-auto animate-in zoom-in duration-200">
+                  <div className="w-20">
+                    <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-wider">Quantity</label>
                     <input
                       type="number"
                       min="1"
-                      className="w-full border-2 border-slate-200 text-slate-900 rounded-xl px-4 py-4 text-base font-bold focus:outline-none focus:border-brand-500 bg-white shadow-sm"
+                      className="w-full border-2 border-slate-200 text-slate-700 rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-500 bg-white shadow-sm"
                       value={quantity}
                       onChange={e => setQuantity(e.target.value)}
                     />
                   </div>
-                  <div className="w-32">
-                    <label className="block text-xs font-black text-slate-600 mb-3 uppercase tracking-wider whitespace-nowrap">Price (€) <span className="text-[9px] text-slate-400 font-bold normal-case ml-1">(Override)</span></label>
+                  <div className="w-28">
+                    <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-wider whitespace-nowrap">Price (€) <span className="text-[9px] text-slate-400 font-bold normal-case ml-1">(Override)</span></label>
                     <input
                       type="number"
                       placeholder={currentProduct ? currentProduct.price.toFixed(2) : '0.00'}
-                      className="w-full border-2 border-slate-200 text-slate-900 rounded-xl px-4 py-4 text-base font-bold focus:outline-none focus:border-brand-500 bg-white shadow-sm placeholder:text-slate-300"
+                      className="w-full border-2 border-slate-200 text-slate-700 rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-500 bg-white shadow-sm placeholder:text-slate-300"
                       value={manualPrice}
                       onChange={e => setManualPrice(e.target.value)}
                     />
@@ -677,10 +741,10 @@ const InvoiceBuilder = () => {
                 <button
                   onClick={addItem}
                   disabled={!selectedProductId || (showCalculator && (isNaN(parseFloat(width)) || isNaN(parseFloat(height)) || parseFloat(width) <= 0 || parseFloat(height) <= 0))}
-                  className="w-full bg-brand-600 text-white px-10 py-4 rounded-xl hover:bg-brand-700 transition-all flex items-center justify-center space-x-3 text-sm font-black shadow-xl shadow-brand-500/20 disabled:opacity-50 disabled:shadow-none"
+                  className="w-full bg-brand-600 text-white px-6 py-2.5 rounded-lg hover:bg-brand-700 transition-all flex items-center justify-center space-x-2 text-xs font-bold shadow-lg shadow-brand-500/20 disabled:opacity-50 disabled:shadow-none uppercase tracking-wider"
                 >
-                  <Plus size={20} />
-                  <span>ADD TO INVOICE</span>
+                  <Plus size={16} />
+                  <span>ADD ITEM</span>
                 </button>
               </div>
             </div>
@@ -740,33 +804,33 @@ const InvoiceBuilder = () => {
             <table className="w-full">
               <thead className="bg-slate-50 border-b-2 border-slate-100">
                 <tr>
-                  <th className="text-left py-5 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Product Description</th>
-                  <th className="text-center py-5 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Qty / SQM</th>
-                  <th className="text-right py-5 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Unit Price</th>
-                  <th className="text-right py-5 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Line Total</th>
+                  <th className="text-left py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Product Description</th>
+                  <th className="text-center py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Qty / SQM</th>
+                  <th className="text-right py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Unit Price</th>
+                  <th className="text-right py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Line Total</th>
                   <th className="w-16"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-20 text-center text-slate-400">
+                    <td colSpan={5} className="py-12 text-center text-slate-400">
                       <div className="flex flex-col items-center space-y-3">
-                        <Calculator size={48} className="opacity-20" />
-                        <p className="text-sm font-medium italic">No items added to this invoice yet.</p>
+                        <Calculator size={32} className="opacity-20" />
+                        <p className="text-xs font-medium italic">No items added to this invoice yet.</p>
                       </div>
                     </td>
                   </tr>
                 ) : (
                   items.map(item => (
                     <tr key={item.id} className="group hover:bg-slate-50/80 transition-colors">
-                      <td className="py-5 px-6">
+                      <td className="py-4 px-6">
                         {editingItemId === item.id ? (
                           <div className="flex items-center gap-2">
                             <input
                               type="text"
                               autoFocus
-                              className="w-full border-2 border-brand-200 text-slate-900 rounded-lg px-2 py-1 text-sm font-bold focus:outline-none focus:border-brand-500 bg-white"
+                              className="w-full border border-brand-200 text-slate-700 rounded px-2 py-1 text-sm font-medium focus:outline-none focus:border-brand-500 bg-white"
                               value={editDesc}
                               onChange={e => setEditDesc(e.target.value)}
                               onKeyDown={e => {
@@ -777,16 +841,16 @@ const InvoiceBuilder = () => {
                           </div>
                         ) : (
                           <div className="group/desc relative pr-8">
-                            <div className="text-sm font-bold text-slate-900">{item.description}</div>
-                            <div className="text-[10px] text-brand-500 font-mono font-bold mt-1">{item.productId}</div>
+                            <div className="text-sm font-medium text-slate-900">{item.description}</div>
+                            <div className="text-[10px] text-brand-500 font-mono font-bold mt-0.5">{item.productId}</div>
                           </div>
                         )}
                       </td>
-                      <td className="py-5 px-6 text-center text-sm font-black text-slate-700">
+                      <td className="py-4 px-6 text-center text-sm font-bold text-slate-700">
                         {editingItemId === item.id ? (
                           <input
                             type="number"
-                            className="w-20 text-center border-2 border-brand-200 rounded-lg px-2 py-1 text-sm font-bold focus:outline-none focus:border-brand-500 bg-white"
+                            className="w-20 text-center border border-brand-200 rounded px-2 py-1 text-sm font-medium focus:outline-none focus:border-brand-500 bg-white"
                             value={editQty}
                             onChange={e => setEditQty(e.target.value)}
                           />
@@ -794,11 +858,11 @@ const InvoiceBuilder = () => {
                           item.quantity
                         )}
                       </td>
-                      <td className="py-5 px-6 text-right text-sm font-medium text-slate-500">
+                      <td className="py-4 px-6 text-right text-sm font-medium text-slate-500">
                         {editingItemId === item.id ? (
                           <input
                             type="number"
-                            className="w-24 text-right border-2 border-brand-200 rounded-lg px-2 py-1 text-sm font-bold focus:outline-none focus:border-brand-500 bg-white"
+                            className="w-24 text-right border border-brand-200 rounded px-2 py-1 text-sm font-medium focus:outline-none focus:border-brand-500 bg-white"
                             value={editPrice}
                             onChange={e => setEditPrice(e.target.value)}
                           />
@@ -806,10 +870,10 @@ const InvoiceBuilder = () => {
                           formatCurrency(item.unitPrice)
                         )}
                       </td>
-                      <td className="py-5 px-6 text-right text-base font-black text-slate-900">
+                      <td className="py-4 px-6 text-right text-sm font-bold text-slate-900">
                         {formatCurrency(item.total)}
                       </td>
-                      <td className="py-5 px-6 text-right">
+                      <td className="py-4 px-6 text-right">
                         {editingItemId === item.id ? (
                           <div className="flex justify-end gap-1">
                             <button onClick={saveEdit} className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200">
@@ -821,11 +885,11 @@ const InvoiceBuilder = () => {
                           </div>
                         ) : (
                           <div className="flex justify-end gap-1">
-                            <button onClick={() => startEditing(item)} className="p-2 text-slate-300 hover:text-brand-600 hover:bg-brand-50 rounded-xl transition-all">
-                              <Pencil size={18} />
+                            <button onClick={() => startEditing(item)} className="p-2 text-slate-300 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-all">
+                              <Pencil size={16} />
                             </button>
-                            <button onClick={() => removeItem(item.id)} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
-                              <Trash2 size={18} />
+                            <button onClick={() => removeItem(item.id)} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all">
+                              <Trash2 size={16} />
                             </button>
                           </div>
                         )}

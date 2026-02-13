@@ -225,6 +225,22 @@ const InvoiceList = () => {
                         <div className="flex items-center justify-center gap-2">
                           {isEditingPayment ? (
                             <div className="flex items-center gap-2 bg-white shadow-lg p-1 rounded-xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+                              <div className="flex gap-1 mr-1">
+                                <button
+                                  onClick={() => setPaymentAmount((inv.balanceDue || 0).toString())}
+                                  className="px-2 py-1 text-[10px] font-black bg-brand-50 text-brand-600 rounded-md hover:bg-brand-100 transition-colors uppercase"
+                                  title="Pay Full Balance"
+                                >
+                                  Full
+                                </button>
+                                <button
+                                  onClick={() => setPaymentAmount(((inv.balanceDue || 0) / 2).toFixed(2))}
+                                  className="px-2 py-1 text-[10px] font-black bg-slate-50 text-slate-600 rounded-md hover:bg-slate-100 transition-colors uppercase"
+                                  title="Pay 50%"
+                                >
+                                  50%
+                                </button>
+                              </div>
                               <div className="relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">€</span>
                                 <input
