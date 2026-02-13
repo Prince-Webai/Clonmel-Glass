@@ -563,6 +563,8 @@ export const sendInvoiceViaWebhook = async (
       customer: {
         id: invoice.customerId,
         name: invoice.customerName,
+        firstName: invoice.customerName ? invoice.customerName.split(' ')[0] : "",
+        lastName: invoice.customerName ? invoice.customerName.split(' ').slice(1).join(' ') : "",
         email: invoice.customerEmail,
         phone: invoice.customerPhone,
         address: invoice.customerAddress,
