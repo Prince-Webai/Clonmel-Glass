@@ -113,6 +113,25 @@ export const storageService = {
 
   async updateInvoice(invoice: any): Promise<void> {
     const updatePayload: any = {};
+
+    // Core fields - only update if present
+    if (invoice.items !== undefined) updatePayload.items = invoice.items;
+    if (invoice.subtotal !== undefined) updatePayload.subtotal = Number(invoice.subtotal);
+    if (invoice.taxRate !== undefined) updatePayload.tax_rate = Number(invoice.taxRate);
+    if (invoice.taxAmount !== undefined) updatePayload.tax_amount = Number(invoice.taxAmount);
+    if (invoice.total !== undefined) updatePayload.total = Number(invoice.total);
+    if (invoice.notes !== undefined) updatePayload.notes = String(invoice.notes);
+    if (invoice.customerName !== undefined) updatePayload.customer_name = String(invoice.customerName);
+    if (invoice.customerEmail !== undefined) updatePayload.customer_email = String(invoice.customerEmail);
+    if (invoice.customerPhone !== undefined) updatePayload.customer_phone = String(invoice.customerPhone);
+    if (invoice.customerAddress !== undefined) updatePayload.customer_address = String(invoice.customerAddress);
+    if (invoice.dateIssued !== undefined) updatePayload.date_issued = String(invoice.dateIssued);
+    if (invoice.dueDate !== undefined) updatePayload.due_date = String(invoice.dueDate);
+    if (invoice.company !== undefined) updatePayload.company = String(invoice.company);
+    if (invoice.documentType !== undefined) updatePayload.document_type = String(invoice.documentType);
+    if (invoice.validUntil !== undefined) updatePayload.valid_until = String(invoice.validUntil);
+
+    // Dynamic/Status fields
     if (invoice.amountPaid !== undefined) updatePayload.amount_paid = Number(invoice.amountPaid);
     if (invoice.balanceDue !== undefined) updatePayload.balance_due = Number(invoice.balanceDue);
     if (invoice.status !== undefined) updatePayload.status = String(invoice.status);
