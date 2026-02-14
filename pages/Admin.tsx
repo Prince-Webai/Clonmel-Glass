@@ -55,14 +55,28 @@ const Admin = () => {
   }, [isSyncing]);
 
   const categories = useMemo(() => {
-    const cats = new Set(products.map(p => p.category));
+    // Filter products by active company first
+    const companyProducts = products.filter(p => {
+      if (activeCompany === 'mirrorzone') {
+        return p.company === 'mirrorzone' || (!p.company && (p.category === 'Mirrors' || String(p.category).toLowerCase().includes('mirror')));
+      } else {
+        return p.company === 'clonmel' || (!p.company && !(p.category === 'Mirrors' || String(p.category).toLowerCase().includes('mirror')));
+      }
+    });
+
+    const cats = new Set(companyProducts.map(p => p.category));
     const list = Array.from(cats);
-    if (!list.includes('Clear Glass')) list.push('Clear Glass');
-    if (!list.includes('Toughened')) list.push('Toughened');
-    if (!list.includes('Mirrors')) list.push('Mirrors');
+
+    // Default categories based on company
+    if (activeCompany === 'clonmel') {
+      if (!list.includes('Clear Glass')) list.push('Clear Glass');
+      if (!list.includes('Toughened')) list.push('Toughened');
+    } else {
+      if (!list.includes('Mirrors')) list.push('Mirrors');
+    }
 
     return ['All', ...list.sort()];
-  }, [products]);
+  }, [products, activeCompany]);
 
   const STANDARD_GLASS_CATEGORIES = ['Clear Glass', 'Toughened', 'Laminated', 'Double Glazed', 'Fire Resistant', 'Obscure', 'Textured', 'Tinted'];
 
@@ -74,9 +88,18 @@ const Admin = () => {
       const nameMatch = String(p.name).toLowerCase().includes(productSearch.toLowerCase());
       const idMatch = String(p.id).toLowerCase().includes(productSearch.toLowerCase());
       const matchesCategory = categoryFilter === 'All' || p.category === categoryFilter;
-      return (nameMatch || idMatch) && matchesCategory;
+
+      // Strict Company Filter
+      let matchesCompany = false;
+      if (activeCompany === 'mirrorzone') {
+        matchesCompany = p.company === 'mirrorzone' || (!p.company && (p.category === 'Mirrors' || String(p.category).toLowerCase().includes('mirror')));
+      } else {
+        matchesCompany = p.company === 'clonmel' || (!p.company && !(p.category === 'Mirrors' || String(p.category).toLowerCase().includes('mirror')));
+      }
+
+      return (nameMatch || idMatch) && matchesCategory && matchesCompany;
     });
-  }, [products, productSearch, categoryFilter]);
+  }, [products, productSearch, categoryFilter, activeCompany]);
 
   // Product Import State
   const [isImporting, setIsImporting] = useState(false);
@@ -614,16 +637,10 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredProducts.filter(p => (
-                      p.company === 'mirrorzone' ||
-                      (!p.company && (p.category === 'Mirrors' || String(p.category).toLowerCase().includes('mirror')))
-                    )).length === 0 ? (
+                    {filteredProducts.length === 0 ? (
                       <tr><td colSpan={4} className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">No mirrors found in catalog</td></tr>
                     ) : (
-                      filteredProducts.filter(p => (
-                        p.company === 'mirrorzone' ||
-                        (!p.company && (p.category === 'Mirrors' || String(p.category).toLowerCase().includes('mirror')))
-                      )).map(p => (
+                      filteredProducts.map(p => (
                         <tr key={p.id} className={`hover:bg-slate-50/50 transition-colors group ${selectedProducts.has(p.id) ? 'bg-purple-50/50' : ''}`}>
                           <td className="px-8 py-6">
                             <input
@@ -775,14 +792,10 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredProducts.filter(p => (
-                      p.company === 'clonmel' || (!p.company && !String(p.category).toLowerCase().includes('mirror'))
-                    )).length === 0 ? (
+                    {filteredProducts.length === 0 ? (
                       <tr><td colSpan={4} className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">No other products found</td></tr>
                     ) : (
-                      filteredProducts.filter(p => (
-                        p.company === 'clonmel' || (!p.company && !String(p.category).toLowerCase().includes('mirror'))
-                      )).map(p => (
+                      filteredProducts.map(p => (
                         <tr key={p.id} className={`hover:bg-slate-50/50 transition-colors group ${selectedProducts.has(p.id) ? 'bg-red-50/50' : ''}`}>
                           <td className="px-8 py-6">
                             <input
