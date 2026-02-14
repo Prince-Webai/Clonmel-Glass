@@ -22,7 +22,8 @@ import {
   Calendar,
   CheckCircle2,
   ChevronRight,
-  Eye
+  Eye,
+  Lock
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { analyzeInvoiceTrends, generateReminderMessage } from '../services/geminiService.ts';
@@ -209,6 +210,64 @@ const ClientDetailModal = ({ invoice, onClose, onSendReminder, isReminding }: {
 
 const Dashboard = () => {
   const { invoices, user, databaseError, updateInvoice, companyLogo, refreshDatabase } = useApp();
+  // Initialize state from session storage
+  const [isLocked, setIsLocked] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('dashboard_unlocked') !== 'true';
+    }
+    return true;
+  });
+  const [pin, setPin] = useState(['', '', '', '']);
+  const [error, setError] = useState(false);
+  const pinRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Focus effect
+  useEffect(() => {
+    if (isLocked && pinRefs.current[0]) {
+      pinRefs.current[0]?.focus();
+    }
+  }, [isLocked]);
+
+  // PIN Validation Effect
+  useEffect(() => {
+    const enteredPin = pin.join('');
+    if (enteredPin.length === 4) {
+      if (enteredPin === '1993') {
+        setIsLocked(false);
+        sessionStorage.setItem('dashboard_unlocked', 'true');
+      } else {
+        setError(true);
+        const timer = setTimeout(() => {
+          setPin(['', '', '', '']);
+          setError(false);
+          if (pinRefs.current[0]) pinRefs.current[0]?.focus();
+        }, 500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [pin]);
+
+  const handlePinChange = (index: number, value: string) => {
+    if (value.length > 1) return; // Prevent multiple chars
+
+    const newPin = [...pin];
+    newPin[index] = value;
+    setPin(newPin);
+    setError(false);
+
+    // Auto-advance
+    if (value && index < 3) {
+      pinRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !pin[index] && index > 0) {
+      pinRefs.current[index - 1]?.focus();
+    }
+  };
+
+
 
   // Force refresh on mount to ensure deleted items are gone if state was stale
   useEffect(() => {
@@ -282,10 +341,12 @@ const Dashboard = () => {
     });
   }, [invoices, dateFilter, customStartDate, customEndDate]);
 
-  const totalRevenue = filteredInvoices.filter(inv => inv.documentType !== 'quote').reduce((acc, inv) => acc + (Number(inv.amountPaid) || 0), 0);
-  const invoiceOutstanding = filteredInvoices.filter(inv => inv.documentType !== 'quote').reduce((acc, inv) => acc + (Number(inv.balanceDue) || 0), 0);
-  const quoteOutstanding = filteredInvoices.filter(inv => inv.documentType === 'quote').reduce((acc, inv) => acc + (Number(inv.total) || 0), 0);
-  const paidInvoices = filteredInvoices.filter(i => i.status === PaymentStatus.PAID && i.documentType !== 'quote').length;
+  const isQuote = (inv: Invoice) => inv.documentType === 'quote' || inv.invoiceNumber.toUpperCase().startsWith('QT') || inv.invoiceNumber.toUpperCase().startsWith('qt');
+
+  const totalRevenue = filteredInvoices.filter(inv => !isQuote(inv)).reduce((acc, inv) => acc + (Number(inv.amountPaid) || 0), 0);
+  const invoiceOutstanding = filteredInvoices.filter(inv => !isQuote(inv)).reduce((acc, inv) => acc + (Number(inv.balanceDue) || 0), 0);
+  const quoteOutstanding = filteredInvoices.filter(inv => isQuote(inv)).reduce((acc, inv) => acc + (Number(inv.total) || 0), 0);
+  const paidInvoices = filteredInvoices.filter(i => i.status === PaymentStatus.PAID && !isQuote(i)).length;
 
   const reminderCandidates = useMemo(() => {
     const today = new Date();
@@ -294,7 +355,9 @@ const Dashboard = () => {
     threeDaysFromNow.setDate(today.getDate() + 3);
 
     return invoices.filter(inv => {
-      if (inv.documentType === 'quote') return false;
+      // Helper check
+      const isQuote = inv.documentType === 'quote' || inv.invoiceNumber.toUpperCase().startsWith('QT') || inv.invoiceNumber.toUpperCase().startsWith('qt');
+      if (isQuote) return false;
       if (inv.status === PaymentStatus.PAID) return false;
       if (!inv.dueDate) return false;
 
@@ -314,7 +377,7 @@ const Dashboard = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return invoices.filter(inv =>
-      inv.documentType !== 'quote' &&
+      !(inv.documentType === 'quote' || inv.invoiceNumber.toUpperCase().startsWith('QT') || inv.invoiceNumber.toUpperCase().startsWith('qt')) &&
       inv.status !== PaymentStatus.PAID &&
       inv.dueDate &&
       !isNaN(new Date(inv.dueDate).getTime()) &&
@@ -454,7 +517,7 @@ const Dashboard = () => {
     const now = new Date();
 
     // Filter invoices first
-    const relevantInvoices = invoices.filter(inv => inv.documentType !== 'quote');
+    const relevantInvoices = invoices.filter(inv => !(inv.documentType === 'quote' || inv.invoiceNumber.toUpperCase().startsWith('QT') || inv.invoiceNumber.toUpperCase().startsWith('qt')));
 
     if (trendView === 'yearly') {
       // Yearly view - Last 5 years
@@ -652,6 +715,44 @@ const Dashboard = () => {
     }
   }, [invoices, trendView, customStartDate, customEndDate]);
 
+  if (isLocked) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-4 animate-in fade-in zoom-in-95 duration-500">
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl shadow-slate-200 border border-slate-100 max-w-sm w-full text-center">
+          <div className="mb-6 inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-50 text-slate-800 shadow-inner">
+            <Lock size={32} />
+          </div>
+          <h2 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Dashboard Locked</h2>
+          <p className="text-sm text-slate-500 font-bold mb-8 uppercase tracking-wide">Enter PIN to Unlock</p>
+
+          <div className="flex justify-center gap-3 mb-8">
+            {pin.map((digit, idx) => (
+              <input
+                key={idx}
+                ref={el => pinRefs.current[idx] = el}
+                type="password"
+                inputMode="numeric"
+                maxLength={1}
+                value={digit}
+                onChange={e => handlePinChange(idx, e.target.value)}
+                onKeyDown={e => handleKeyDown(idx, e)}
+                className={`w-12 h-16 text-center text-2xl font-black rounded-2xl border-2 outline-none transition-all duration-200
+                        ${error
+                    ? 'border-rose-200 bg-rose-50 text-rose-500 animate-shake'
+                    : 'border-slate-100 bg-slate-50 focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-500/10 text-slate-800'
+                  }`}
+              />
+            ))}
+          </div>
+
+          <div className="text-[10px] bg-slate-50 p-3 rounded-xl text-slate-400 font-bold uppercase tracking-widest">
+            SECURED ACCESS ONLY
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
 
     <div className="max-w-7xl mx-auto space-y-8 pb-12">
@@ -767,7 +868,7 @@ const Dashboard = () => {
 
       {/* Secondary Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <StatCard label="Active Invoices" value={invoices.filter(i => i.documentType !== 'quote').length} icon={Package} color="bg-slate-800" />
+        <StatCard label="Active Invoices" value={invoices.filter(i => !(i.documentType === 'quote' || i.invoiceNumber.toUpperCase().startsWith('QT') || i.invoiceNumber.toUpperCase().startsWith('qt')) && i.status !== PaymentStatus.PAID).length} icon={Package} color="bg-slate-800" />
         <StatCard label="Action Needed" value={overdueCount} icon={BellRing} color="bg-amber-500" />
       </div>
 

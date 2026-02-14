@@ -115,8 +115,8 @@ const Quotes = () => {
                 />
             </div>
 
-            {/* Quotes Table */}
-            <div className="bg-white rounded-[2.5rem] border-2 border-slate-100 overflow-hidden shadow-2xl">
+            {/* Quotes Table (Hidden on Mobile) */}
+            <div className="hidden md:block bg-white rounded-[2.5rem] border-2 border-slate-100 overflow-hidden shadow-2xl">
                 <table className="w-full">
                     <thead className="bg-slate-900 border-b-2 border-slate-800">
                         <tr className="text-white">
@@ -235,6 +235,100 @@ const Quotes = () => {
                         )}
                     </tbody>
                 </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-4 pb-20">
+                {filteredQuotes.length === 0 ? (
+                    <div className="py-12 text-center bg-white rounded-2xl border-2 border-slate-100">
+                        <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-full mb-3">
+                            <FileText size={32} className="text-slate-400" />
+                        </div>
+                        <p className="text-slate-500 font-bold">No quotes found</p>
+                    </div>
+                ) : (
+                    filteredQuotes.map(quote => (
+                        <div key={quote.id} className="bg-white rounded-2xl p-5 border-2 border-slate-100 shadow-sm relative overflow-hidden">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-lg font-black text-slate-900">{quote.invoiceNumber}</span>
+                                        {getStatusBadge(quote.status)}
+                                    </div>
+                                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                        {new Date(quote.dateIssued).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-lg font-black text-brand-600">{formatCurrency(quote.total)}</div>
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total</div>
+                                </div>
+                            </div>
+
+                            <div className="bg-slate-50 rounded-xl p-3 mb-4 flex justify-between items-center">
+                                <div>
+                                    <div className="text-sm font-bold text-slate-900">{quote.customerName}</div>
+                                    <div className="text-[10px] text-slate-500 uppercase font-semibold">{quote.company === 'mirrorzone' ? 'Mirrorzone' : 'Clonmel Glass'}</div>
+                                </div>
+                                {quote.validUntil && (
+                                    <div className="text-right">
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase">Valid Until</div>
+                                        <div className="text-xs font-bold text-slate-700">
+                                            {new Date(quote.validUntil).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-4 gap-2">
+                                <button
+                                    onClick={() => { setEditingInvoice(quote); setView('CREATE_INVOICE'); }}
+                                    className="flex flex-col items-center justify-center p-2 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition-colors"
+                                >
+                                    <Edit size={18} />
+                                    <span className="text-[9px] font-bold mt-1 uppercase">Edit</span>
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const randomVal = Math.floor(1000 + Math.random() * 9000);
+                                        const newInvoiceNumber = `INV-${new Date().getFullYear()}-${randomVal}`;
+                                        const quoteAsInvoice = {
+                                            ...quote,
+                                            documentType: 'invoice' as const,
+                                            invoiceNumber: newInvoiceNumber,
+                                            status: PaymentStatus.UNPAID
+                                        };
+                                        setEditingInvoice(quoteAsInvoice);
+                                        setView('CREATE_INVOICE');
+                                    }}
+                                    className="flex flex-col items-center justify-center p-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition-colors"
+                                >
+                                    <FileOutput size={18} />
+                                    <span className="text-[9px] font-bold mt-1 uppercase">Convert</span>
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        const url = await generatePreviewUrl(quote, settings);
+                                        window.open(url, '_blank');
+                                    }}
+                                    className="flex flex-col items-center justify-center p-2 bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100 transition-colors"
+                                >
+                                    <Eye size={18} />
+                                    <span className="text-[9px] font-bold mt-1 uppercase">View</span>
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        if (window.confirm('Delete this quote?')) deleteInvoice(quote.id);
+                                    }}
+                                    className="flex flex-col items-center justify-center p-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 transition-colors"
+                                >
+                                    <Trash2 size={18} />
+                                    <span className="text-[9px] font-bold mt-1 uppercase">Delete</span>
+                                </button>
+                            </div>
+                        </div>
+                    ))
+                )}
             </div>
         </div>
     );

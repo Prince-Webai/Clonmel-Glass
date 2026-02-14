@@ -282,6 +282,7 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
     // No Supabase SignOut needed for custom auth
     setUser(null);
     localStorage.removeItem('currentUser');
+    sessionStorage.removeItem('dashboard_unlocked');
     setView('LOGIN');
   };
 
@@ -378,6 +379,12 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
     try {
       await storageService.updateUser(u);
       setUsers(prev => prev.map(user => user.id === u.id ? u : user));
+
+      // Update current session if the updated user is the logged-in user
+      if (user && user.id === u.id) {
+        setUser(u);
+        localStorage.setItem('currentUser', JSON.stringify(u));
+      }
     } finally {
       setIsSyncing(false);
     }

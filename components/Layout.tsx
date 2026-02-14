@@ -100,7 +100,7 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
             </div>
 
             <div className="flex-1 min-w-0 relative z-10">
-              <p className="text-sm font-medium text-white truncate">{user.name}</p>
+              <p className="text-sm font-medium text-white leading-tight">{user.name}</p>
               <p className="text-xs text-slate-400 truncate">{user.role}</p>
             </div>
           </div>
@@ -149,6 +149,7 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
                 )}
                 <NavItem view="CALENDAR" icon={CalendarDays} label="Schedule" />
                 <NavItem view="INVOICES" icon={FileText} label="Invoices" />
+                <NavItem view="QUOTES" icon={FileCheck} label="Quotes" />
                 <NavItem view="CREATE_INVOICE" icon={PlusCircle} label="New Invoice" />
                 <NavItem view="CUSTOMERS" icon={UserCircle} label="Customers" />
                 {user.role === UserRole.ADMIN && (

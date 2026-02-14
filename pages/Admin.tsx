@@ -13,7 +13,7 @@ import { supabase } from '../services/storageService';
 const Admin = () => {
   const {
     products, addProduct, updateProduct, deleteProduct,
-    users, addUser, deleteUser, user: currentUser,
+    users, addUser, updateUser, deleteUser, user: currentUser,
     companyLogo, setCompanyLogo, isSyncing, databaseError, refreshDatabase,
     currentView
   } = useApp();
@@ -43,6 +43,7 @@ const Admin = () => {
   const [uName, setUName] = useState('');
   const [uEmail, setUEmail] = useState('');
   const [uRole, setURole] = useState<UserRole>(UserRole.USER);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
   useEffect(() => {
     if (isSyncing) {
@@ -286,6 +287,17 @@ const Admin = () => {
       }
     }
   };
+  const handleUpdateUser = async () => {
+    if (!editingUser) return;
+    try {
+      await updateUser(editingUser);
+      setEditingUser(null);
+      showToast('User updated successfully', 'success');
+    } catch (err: any) {
+      console.error('Update user error:', err);
+      showToast(`Failed to update user: ${err.message}`, 'error');
+    }
+  };
 
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -369,7 +381,7 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-black text-slate-800 tracking-tight">System Engine</h2>
-          <p className="text-xs text-slate-400 font-bold uppercase tracking-[0.3em] mt-2">Node Instance: azyeptjbktvkqiigotbi</p>
+          {/* Node Instance removed */}
         </div>
         <div className={`flex items-center space-x-4 text-[10px] font-black border-2 px-6 py-2.5 rounded-2xl shadow-sm ${databaseError ? 'bg-rose-50 border-rose-100 text-rose-600' : 'bg-brand-50 border-brand-100 text-brand-600'}`}>
           <Cloud size={14} className={databaseError ? 'text-rose-400' : 'text-brand-500'} />
@@ -982,25 +994,86 @@ ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;`;
                         {u.name.charAt(0)}
                       </div>
                       <div>
-                        <span className="block font-black text-slate-900 text-base tracking-tight">{String(u.name)}</span>
-                        <span className="text-[10px] font-bold text-slate-300 uppercase">Hardware ID: {String(u.id)}</span>
+                        {editingUser?.id === u.id ? (
+                          <input
+                            type="text"
+                            value={editingUser.name}
+                            onChange={e => setEditingUser({ ...editingUser, name: e.target.value })}
+                            className="block w-full bg-white border-2 border-purple-200 rounded-lg px-2 py-1 text-base font-black text-slate-900 focus:border-purple-500 outline-none"
+                          />
+                        ) : (
+                          <>
+                            <span className="block font-black text-slate-900 text-base tracking-tight">{String(u.name)}</span>
+                            {/* Hardware ID removed */}
+                          </>
+                        )}
                       </div>
                     </td>
-                    <td className="px-12 py-7 text-slate-500 font-black text-sm">{String(u.email)}</td>
+                    <td className="px-12 py-7 text-slate-500 font-black text-sm">
+                      {editingUser?.id === u.id ? (
+                        <input
+                          type="email"
+                          value={editingUser.email}
+                          onChange={e => setEditingUser({ ...editingUser, email: e.target.value })}
+                          className="block w-full bg-white border-2 border-purple-200 rounded-lg px-2 py-1 text-sm font-black text-slate-900 focus:border-purple-500 outline-none"
+                        />
+                      ) : (
+                        String(u.email)
+                      )}
+                    </td>
                     <td className="px-12 py-7">
-                      <span className={`text-[9px] font-black uppercase tracking-widest px-5 py-2 rounded-2xl border-2 ${u.role === UserRole.ADMIN ? 'bg-purple-50 text-purple-700 border-purple-100' : 'bg-slate-50 text-slate-600 border-slate-100'}`}>
-                        {String(u.role)}
-                      </span>
+                      {editingUser?.id === u.id ? (
+                        <select
+                          value={editingUser.role}
+                          onChange={e => setEditingUser({ ...editingUser, role: e.target.value as UserRole })}
+                          className="bg-white border-2 border-purple-200 rounded-lg px-2 py-1 text-[9px] font-black uppercase tracking-widest focus:border-purple-500 outline-none"
+                        >
+                          <option value={UserRole.USER}>Standard User</option>
+                          <option value={UserRole.ADMIN}>Administrator</option>
+                        </select>
+                      ) : (
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-5 py-2 rounded-2xl border-2 ${u.role === UserRole.ADMIN ? 'bg-purple-50 text-purple-700 border-purple-100' : 'bg-slate-50 text-slate-600 border-slate-100'}`}>
+                          {String(u.role)}
+                        </span>
+                      )}
                     </td>
                     <td className="px-12 py-7 text-right">
-                      {u.id !== currentUser?.id && (
-                        <button
-                          onClick={() => handleDeleteUser(u.id)}
-                          className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-2xl transition-all"
-                          title="Remove User"
-                        >
-                          <Trash2 size={20} />
-                        </button>
+                      {editingUser?.id === u.id ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={handleUpdateUser}
+                            className="p-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl transition-all shadow-lg shadow-emerald-500/20"
+                            title="Save Changes"
+                          >
+                            <Check size={18} />
+                          </button>
+                          <button
+                            onClick={() => setEditingUser(null)}
+                            className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-2xl transition-all"
+                            title="Cancel"
+                          >
+                            <X size={18} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => setEditingUser(u)}
+                            className="p-3 text-slate-300 hover:text-purple-600 hover:bg-purple-50 rounded-2xl transition-all"
+                            title="Edit User"
+                          >
+                            <Edit2 size={18} />
+                          </button>
+                          {u.id !== currentUser?.id && (
+                            <button
+                              onClick={() => handleDeleteUser(u.id)}
+                              className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-2xl transition-all"
+                              title="Remove User"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>
