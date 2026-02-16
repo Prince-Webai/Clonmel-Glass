@@ -209,7 +209,7 @@ const ClientDetailModal = ({ invoice, onClose, onSendReminder, isReminding }: {
 };
 
 const Dashboard = () => {
-  const { invoices, user, databaseError, updateInvoice, companyLogo, refreshDatabase } = useApp();
+  const { invoices, user, databaseError, updateInvoice, companyLogo, refreshDatabase, settings } = useApp();
   // Initialize state from session storage
   const [isLocked, setIsLocked] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -500,7 +500,7 @@ const Dashboard = () => {
 
   const handlePreview = async (inv: Invoice) => {
     try {
-      const url = await generatePreviewUrl(inv, companyLogo);
+      const url = await generatePreviewUrl(inv, settings, companyLogo, user?.name || 'Admin');
       setPreviewUrl(url);
     } catch (e) {
       alert("Preview failed.");

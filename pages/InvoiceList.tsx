@@ -124,7 +124,7 @@ const InvoiceList = () => {
         const fullCustomer = customers.find(c => c.id === inv.customerId);
 
         // Pass notificationType to webhook
-        await sendInvoiceViaWebhook(inv, settings, companyLogo, fullCustomer, notificationType);
+        await sendInvoiceViaWebhook(inv, settings, companyLogo, fullCustomer, notificationType, user?.name || 'Admin');
 
         alert(`Invoice sent successfully! (${notificationType})`);
 
@@ -304,7 +304,7 @@ const InvoiceList = () => {
                               </button>
                               <button
                                 onClick={async () => {
-                                  const url = await generatePreviewUrl(inv, settings);
+                                  const url = await generatePreviewUrl(inv, settings, undefined, user?.name || 'Admin');
                                   window.open(url, '_blank');
                                 }}
                                 className="p-2 text-brand-600 bg-brand-50 hover:bg-brand-600 hover:text-white rounded-xl transition-all"
@@ -327,7 +327,7 @@ const InvoiceList = () => {
                                 <ArrowRightCircle size={16} />
                               </button>
                               <button
-                                onClick={() => downloadInvoicePDF(inv, settings)}
+                                onClick={() => downloadInvoicePDF(inv, settings, undefined, user?.name || 'Admin')}
                                 className="p-2 text-slate-600 bg-slate-50 hover:bg-slate-500 hover:text-white rounded-xl transition-all"
                                 title="Download"
                               >

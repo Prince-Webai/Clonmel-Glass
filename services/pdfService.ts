@@ -28,7 +28,7 @@ const getImageBase64 = async (url: string): Promise<string> => {
 };
 
 // Helper to generate the jsPDF instance
-const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl?: string): Promise<jsPDF> => {
+const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl?: string, createdBy: string = 'Admin'): Promise<jsPDF> => {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -146,7 +146,7 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
 
       // Restrict Max Dimensions
       const maxW = isMirrorzone ? 80 : 60;
-      const maxH = 20;
+      const maxH = 35; // Increased from 20 to 35 to fix "messed up" aspect ratio for taller logos
 
       let logoW = maxW;
       let logoH = maxW / ratio;
@@ -239,7 +239,7 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
   const infoCols = [
     { label: `${docTitle} Date`, val: new Date(invoice.dateIssued).toLocaleDateString('en-GB') },
     { label: "Ref. No.", val: invoice.invoiceNumber },
-    { label: "Account Manager", val: "Admin" },
+    { label: "Account Manager", val: createdBy },
     { label: "VAT No.", val: settings.vatNumber || "IE8252470Q" },
     { label: "Payment Due", val: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-GB') : "On Receipt" },
     { label: "Credit Terms", val: "30 Days" }
@@ -473,8 +473,8 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
 };
 
 // Exported Actions
-export const downloadInvoicePDF = async (invoice: Invoice, settings: AppSettings, logoUrl?: string) => {
-  const doc = await createInvoiceDoc(invoice, settings, logoUrl);
+export const downloadInvoicePDF = async (invoice: Invoice, settings: AppSettings, logoUrl?: string, createdBy: string = 'Admin') => {
+  const doc = await createInvoiceDoc(invoice, settings, logoUrl, createdBy);
 
   // Mobile-friendly download handling
   if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
@@ -495,8 +495,8 @@ export const downloadInvoicePDF = async (invoice: Invoice, settings: AppSettings
   }
 };
 
-export const generatePreviewUrl = async (invoice: Invoice, settings: AppSettings, logoUrl?: string): Promise<string> => {
-  const doc = await createInvoiceDoc(invoice, settings, logoUrl);
+export const generatePreviewUrl = async (invoice: Invoice, settings: AppSettings, logoUrl?: string, createdBy: string = 'Admin'): Promise<string> => {
+  const doc = await createInvoiceDoc(invoice, settings, logoUrl, createdBy);
   return doc.output('bloburl').toString();
 };
 
@@ -505,14 +505,15 @@ export const sendInvoiceViaWebhook = async (
   settings: AppSettings,
   logoUrl?: string,
   customer?: Customer,
-  notificationType?: string // "First Mail" or "Reminder"
+  notificationType?: string, // "First Mail" or "Reminder"
+  createdBy: string = 'Admin'
 ): Promise<boolean> => {
   if (!settings.webhookUrl) {
     throw new Error("Webhook URL not configured in Settings.");
   }
 
   try {
-    const doc = await createInvoiceDoc(invoice, settings, logoUrl);
+    const doc = await createInvoiceDoc(invoice, settings, logoUrl, createdBy);
 
     // Get PDF as Base64 string
     const pdfDataUri = doc.output('datauristring');

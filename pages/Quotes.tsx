@@ -202,7 +202,7 @@ const Quotes = () => {
                                             </button>
                                             <button
                                                 onClick={async () => {
-                                                    const url = await generatePreviewUrl(quote, settings);
+                                                    const url = await generatePreviewUrl(quote, settings, undefined, user?.name || 'Admin');
                                                     window.open(url, '_blank');
                                                 }}
                                                 className="p-3 text-brand-600 bg-brand-50 hover:bg-brand-600 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm active:scale-95"
@@ -211,7 +211,7 @@ const Quotes = () => {
                                                 <Eye size={20} />
                                             </button>
                                             <button
-                                                onClick={() => downloadInvoicePDF(quote, settings)}
+                                                onClick={() => downloadInvoicePDF(quote, settings, undefined, user?.name || 'Admin')}
                                                 className="p-3 text-slate-600 bg-slate-100 hover:bg-slate-600 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm active:scale-95"
                                                 title="Download Quote PDF"
                                             >
@@ -308,7 +308,7 @@ const Quotes = () => {
                                 </button>
                                 <button
                                     onClick={async () => {
-                                        const url = await generatePreviewUrl(quote, settings);
+                                        const url = await generatePreviewUrl(quote, settings, undefined, user?.name || 'Admin');
                                         window.open(url, '_blank');
                                     }}
                                     className="flex flex-col items-center justify-center p-2 bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100 transition-colors"
