@@ -144,9 +144,9 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
       const dims = await getImageDimensions(logoBase64);
       const ratio = dims.w / dims.h;
 
-      // Restrict Max Dimensions
-      const maxW = isMirrorzone ? 80 : 60;
-      const maxH = 35; // Increased from 20 to 35 to fix "messed up" aspect ratio for taller logos
+      // Restrict Max Dimensions - Reduced to prevent "too big" look
+      const maxW = isMirrorzone ? 70 : 50;
+      const maxH = 22; // Reduced from 35 back to 22 to keep it tidy
 
       let logoW = maxW;
       let logoH = maxW / ratio;
