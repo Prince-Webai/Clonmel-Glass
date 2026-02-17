@@ -330,7 +330,20 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
   // @ts-ignore
   yPos = doc.lastAutoTable.finalY + 10;
 
+  // Helper: Check if we need a new page
+  const checkPageBreak = (requiredSpace: number) => {
+    if (yPos + requiredSpace > pageHeight - margin) {
+      doc.addPage();
+      yPos = margin + 10; // Reset to top with slight padding
+      return true;
+    }
+    return false;
+  };
+
   // 6. VAT ANALYSIS TABLE (Left) & TOTALS (Right)
+  // Check if we have space for the Totals block (approx 60mm)
+  checkPageBreak(60);
+
   const leftColX = margin;
   const rightColX = pageWidth - margin - 80;
 
@@ -421,8 +434,11 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
 
   // 7. FOOTER SECTION
   // @ts-ignore
-  const vatTableEnd = doc.lastAutoTable.finalY;
+  const vatTableEnd = doc.lastAutoTable.finalY || yPos; // Fallback if table didn't render?
   yPos = Math.max(vatTableEnd, totalsY) + 15;
+
+  // Check if we have space for the Footer block (Notes + Bank Details ~ 50mm)
+  checkPageBreak(50);
 
   doc.setDrawColor(229, 231, 235);
   doc.setLineWidth(0.1);
@@ -430,7 +446,6 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
   yPos += 5;
 
   const leftFooterX = margin;
-  const rightFooterX = pageWidth - margin - 70; // Positioned on right side
 
   // Payment Terms - REMOVED as per request, just showing Notes if present
   doc.setFont("helvetica", "bold");
@@ -443,10 +458,13 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
     doc.setFontSize(8);
     const notes = doc.splitTextToSize(invoice.notes || "", 80);
     doc.text(notes, leftFooterX, yPos);
+
+    // Adjust yPos based on notes length
+    yPos += (notes.length * 4) + 2;
   }
 
   // Bank Details
-  yPos += 10; // Add space between Notes and Bank Details
+  yPos += 6; // Add space between Notes and Bank Details
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
@@ -476,16 +494,21 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
     yPos += 4;
   });
 
-  // Bottom Footer
-  const pageBottom = pageHeight - 10;
-  doc.setFillColor(243, 244, 246);
-  doc.rect(0, pageBottom - 5, pageWidth, 15, 'F');
+  // 8. GLOBAL PAGE FOOTER (Page Numbers)
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    const pageBottom = pageHeight - 10;
 
-  doc.setTextColor(75, 85, 99);
-  doc.setFontSize(8);
-  const todayDate = new Date().toLocaleDateString('en-GB');
-  doc.text(`Printed as: ${todayDate} | Page 1 of 1`, margin, pageBottom + 2);
-  doc.text("Created by Clonmel Glass Invoice Hub", pageWidth - margin, pageBottom + 2, { align: 'right' });
+    doc.setFillColor(243, 244, 246);
+    doc.rect(0, pageBottom - 5, pageWidth, 15, 'F');
+
+    doc.setTextColor(75, 85, 99);
+    doc.setFontSize(8);
+    const todayDate = new Date().toLocaleDateString('en-GB');
+    doc.text(`Printed as: ${todayDate} | Page ${i} of ${pageCount}`, margin, pageBottom + 2);
+    doc.text("Created by Clonmel Glass Invoice Hub", pageWidth - margin, pageBottom + 2, { align: 'right' });
+  }
 
   return doc;
 };
