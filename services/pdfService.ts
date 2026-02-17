@@ -10,16 +10,34 @@ const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
-// Helper to convert image URL to base64
+// Helper to convert image URL to base64 (Flattened to White Background)
 const getImageBase64 = async (url: string): Promise<string> => {
   try {
     const response = await fetch(url);
     const blob = await response.blob();
+
     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
+      const img = new Image();
+      img.crossOrigin = 'Anonymous'; // Handle potential CORS if served from external
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Could not get canvas context'));
+          return;
+        }
+        // Fill white background to prevent black-box transparency issues in PDF
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Draw image on top
+        ctx.drawImage(img, 0, 0);
+        // Return as JPEG to ensure opacity
+        resolve(canvas.toDataURL('image/jpeg', 0.95));
+      };
+      img.onerror = (e) => reject(e);
+      img.src = URL.createObjectURL(blob);
     });
   } catch (error) {
     console.error('Error loading image:', error);
@@ -127,7 +145,7 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
   // Logo (Top Right)
   // Logo (Top Right)
   const logoPath = isMirrorzone ? '/mirrorzone-logo.png' : '/clonmel-logo.png';
-  const format = 'PNG'; // Both are now PNGs
+  const format = 'JPEG'; // Converted to JPEG with white bg to fix transparency issues
 
   try {
     const logoBase64 = await getImageBase64(logoPath);
