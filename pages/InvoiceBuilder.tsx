@@ -21,11 +21,12 @@ const InvoiceBuilder = () => {
   const { showToast } = useToast();
 
   const [documentType, setDocumentType] = useState<'invoice' | 'quote'>('invoice');
-  const [invoiceNumber, setInvoiceNumber] = useState(`INV-${Date.now().toString().slice(-6)}`);
+  const [invoiceNumber, setInvoiceNumber] = useState('');
 
+  // 1. Initial Load Effect - ONLY run when editingInvoice or settings change
   useEffect(() => {
     if (editingInvoice) {
-      setInvoiceNumber(editingInvoice.invoiceNumber);
+      setDocumentType(editingInvoice.documentType || 'invoice');
       setCustomerName(editingInvoice.customerName);
       setCustomerEmail(editingInvoice.customerEmail || '');
       setCustomerPhone(editingInvoice.customerPhone || '');
@@ -35,25 +36,31 @@ const InvoiceBuilder = () => {
       setItems(editingInvoice.items);
       setNotes(editingInvoice.notes || '');
       setCompany(editingInvoice.company || 'clonmel');
+      setTaxRate(editingInvoice.taxRate || settings.taxRate || 23);
 
-      // Smart Conversion Logic:
-      // If we are editing an 'invoice' that still has a 'QT-' prefix, it means we came from "Convert to Invoice".
-      // generating a new proper Invoice Number for it.
+      // Smart Conversion Prefix Check
       if (editingInvoice.documentType === 'invoice' && (editingInvoice.invoiceNumber.startsWith('QT') || editingInvoice.invoiceNumber.startsWith('qt'))) {
         const randomVal = Math.floor(1000 + Math.random() * 9000);
         setInvoiceNumber(`INV-${new Date().getFullYear()}-${randomVal}`);
       } else {
         setInvoiceNumber(editingInvoice.invoiceNumber);
       }
-
-      setDocumentType(editingInvoice.documentType || 'invoice');
-      setTaxRate(editingInvoice.taxRate || settings.taxRate || 23);
     } else {
-      const prefix = documentType === 'quote' ? 'QT' : 'INV';
-      setInvoiceNumber(`${prefix}-${Date.now().toString().slice(-6)}`);
       setTaxRate(settings.taxRate || 23);
     }
-  }, [editingInvoice, documentType, settings]);
+  }, [editingInvoice]);
+
+  // 2. Document Number Generation Effect - Only for NEW documents when type changes
+  useEffect(() => {
+    if (!editingInvoice) {
+      const prefix = documentType === 'quote' ? 'QT' : 'INV';
+      setInvoiceNumber(`${prefix}-${Date.now().toString().slice(-6)}`);
+    } else if (editingInvoice.documentType !== documentType) {
+      // Optional: Update number if manually toggling an existing document? 
+      // Usually we want to keep it if it's already saved, but for new edits it might be okay.
+      // Let's keep it as is unless it's a "Convert to Invoice" scenario which we handled above.
+    }
+  }, [documentType, editingInvoice]);
 
   const [company, setCompany] = useState<'clonmel' | 'mirrorzone'>('clonmel');
   const [customerName, setCustomerName] = useState('');
@@ -282,9 +289,7 @@ const InvoiceBuilder = () => {
         dueDate: dueDate || invoiceDate,
         notes,
         createdBy: user?.id || 'unknown',
-        validUntil: documentType === 'quote'
-          ? (editingInvoice?.validUntil || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString())
-          : undefined
+        validUntil: documentType === 'quote' ? dueDate : undefined
       };
 
       if (editingInvoice && editingInvoice.id) {
@@ -572,7 +577,7 @@ const InvoiceBuilder = () => {
               </div>
               <div>
                 <DatePicker
-                  label="Due Date"
+                  label={documentType === 'quote' ? "Valid Until" : "Due Date"}
                   value={dueDate}
                   onChange={setDueDate}
                   align="right"

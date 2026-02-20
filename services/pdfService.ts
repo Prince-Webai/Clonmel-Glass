@@ -259,7 +259,7 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
     { label: "Ref. No.", val: invoice.invoiceNumber },
     { label: "Account Manager", val: createdBy },
     { label: "VAT No.", val: settings.vatNumber || "IE8252470Q" },
-    { label: "Payment Due", val: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-GB') : "On Receipt" },
+    { label: invoice.documentType === 'quote' ? "Valid Until" : "Payment Due", val: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-GB') : "On Receipt" },
     { label: "Credit Terms", val: "30 Days" }
   ];
 
