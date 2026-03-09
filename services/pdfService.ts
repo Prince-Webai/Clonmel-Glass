@@ -130,7 +130,9 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
 
   // 2. HEADER: Title Left, Logo Right
   yPos = 25; // Moved up from 35
-  const docTitle = invoice.documentType === 'quote' ? 'Quote' : 'Invoice';
+  const docIdentifier = (invoice.invoiceNumber || '').toUpperCase();
+  const isQuote = invoice.documentType === 'quote' || docIdentifier.startsWith('QT');
+  const docTitle = isQuote ? 'Quote' : 'Invoice';
 
   // Title
   doc.setFont("helvetica", "normal");
@@ -259,7 +261,7 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
     { label: "Ref. No.", val: invoice.invoiceNumber },
     { label: "Account Manager", val: createdBy },
     { label: "VAT No.", val: settings.vatNumber || "IE8252470Q" },
-    { label: invoice.documentType === 'quote' ? "Valid Until" : "Payment Due", val: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-GB') : "On Receipt" },
+    { label: isQuote ? "Valid Until" : "Payment Due", val: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-GB') : "On Receipt" },
     { label: "Credit Terms", val: "30 Days" }
   ];
 
@@ -347,43 +349,45 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
   const leftColX = margin;
   const rightColX = pageWidth - margin - 80;
 
-  // VAT Analysis Table
-  const vatRows = [
-    ["23.00%", `€${formatCurrency(invoice.subtotal)}`, `€${formatCurrency(invoice.taxAmount)}`, `€${formatCurrency(invoice.total)}`]
-  ];
+  // VAT Analysis Table (Only if NOT inclusive)
+  if (!invoice.isVatInclusive) {
+    const vatRows = [
+      ["23.00%", `€${formatCurrency(invoice.subtotal)}`, `€${formatCurrency(invoice.taxAmount)}`, `€${formatCurrency(invoice.total)}`]
+    ];
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.text("VAT Analysis", leftColX, yPos - 2);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text("VAT Analysis", leftColX, yPos - 2);
 
-  autoTable(doc, {
-    startY: yPos,
-    margin: { left: leftColX },
-    tableWidth: 90,
-    head: [["VAT Rate %", "Net", "VAT", "Gross"]],
-    body: vatRows,
-    theme: 'plain',
-    styles: {
-      fontSize: 8,
-      font: "helvetica",
-      textColor: textColor,
-      cellPadding: 3,
-      lineColor: [229, 231, 235] as any,
-      lineWidth: 0.1,
-    },
-    headStyles: {
-      fillColor: [243, 244, 246] as any,
-      textColor: [0, 0, 0],
-      fontStyle: 'bold',
-      halign: 'left'
-    },
-    columnStyles: {
-      0: { halign: 'left' },
-      1: { halign: 'right' },
-      2: { halign: 'right' },
-      3: { halign: 'right' }
-    }
-  });
+    autoTable(doc, {
+      startY: yPos,
+      margin: { left: leftColX },
+      tableWidth: 90,
+      head: [["VAT Rate %", "Net", "VAT", "Gross"]],
+      body: vatRows,
+      theme: 'plain',
+      styles: {
+        fontSize: 8,
+        font: "helvetica",
+        textColor: textColor,
+        cellPadding: 3,
+        lineColor: [229, 231, 235] as any,
+        lineWidth: 0.1,
+      },
+      headStyles: {
+        fillColor: [243, 244, 246] as any,
+        textColor: [0, 0, 0],
+        fontStyle: 'bold',
+        halign: 'left'
+      },
+      columnStyles: {
+        0: { halign: 'left' },
+        1: { halign: 'right' },
+        2: { halign: 'right' },
+        3: { halign: 'right' }
+      }
+    });
+  }
 
   // TOTALS SECTION (Right Side)
   let totalsY = yPos;
@@ -405,15 +409,21 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
   doc.setLineWidth(0.3);
   doc.line(labX, totalsY, valX, totalsY);
 
-  drawTotalLine("Total Net", `€${formatCurrency(invoice.subtotal)}`);
-  drawTotalLine("Total Discount", `€${formatCurrency(0)}`);
-  drawTotalLine("Total VAT", `€${formatCurrency(invoice.taxAmount)}`);
+  if (!invoice.isVatInclusive) {
+    drawTotalLine("Total Net", `€${formatCurrency(invoice.subtotal)}`);
+    drawTotalLine("Total Discount", `€${formatCurrency(0)}`);
+    drawTotalLine("Total VAT", `€${formatCurrency(invoice.taxAmount)}`);
+  } else {
+    drawTotalLine("Subtotal", `€${formatCurrency(invoice.total)}`);
+    // Skip VAT line as it's inclusive
+  }
 
   // Total Gross
   totalsY += 4;
   doc.line(labX, totalsY, valX, totalsY);
   totalsY += 2;
-  drawTotalLine("Total Gross", `€${formatCurrency(invoice.total)}`, true);
+  const finalTotalLabel = invoice.isVatInclusive ? "Total (VAT Inclusive)" : "Total Gross";
+  drawTotalLine(finalTotalLabel, `€${formatCurrency(invoice.total)}`, true);
 
   // Less Deposit Section
   totalsY += 2;

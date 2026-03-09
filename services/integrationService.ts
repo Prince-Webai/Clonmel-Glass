@@ -69,7 +69,8 @@ export const sendToXero = async (invoice: Invoice, customer: Customer | undefine
             source: 'Clonmel Glass Invoice Hub',
             transferredBy: user?.email || 'system',
             timestamp: new Date().toISOString(),
-            company: settings.companyName
+            company: settings.companyName,
+            paymentStatus: invoice.status === 'PAID' ? 'FULLY_PAID' : 'PENDING'
         }
     };
 

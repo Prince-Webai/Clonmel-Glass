@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { formatDate } from '../utils';
 import { Invoice, PaymentStatus } from '../types';
-import { Search, Download, Eye, Trash2, Edit, CheckCircle2, Clock, AlertCircle, CreditCard, Mail, ArrowRightCircle, Euro, X, Check } from 'lucide-react';
+import { Search, Download, Eye, Trash2, Edit, CheckCircle2, Clock, AlertCircle, CreditCard, Mail, ArrowRightCircle, Euro, X, Check, Loader2 } from 'lucide-react';
 import { downloadInvoicePDF, generatePreviewUrl, sendInvoiceViaWebhook } from '../services/pdfService';
 import { sendToXero } from '../services/integrationService';
 
@@ -18,17 +18,19 @@ const formatCurrency = (amount: number) => {
 const StatusBadge = ({ status, overdue }: { status: PaymentStatus, overdue?: boolean }) => {
   const config = {
     [PaymentStatus.PAID]: {
-      style: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+      style: 'bg-emerald-50 text-emerald-700 border-emerald-100 shadow-[0_2px_10px_rgba(16,185,129,0.1)]',
       icon: <CheckCircle2 size={10} />,
       label: 'PAID'
     },
     [PaymentStatus.PARTIALLY_PAID]: {
-      style: 'bg-amber-50 text-amber-700 border-amber-200',
+      style: 'bg-amber-50 text-amber-700 border-amber-200 shadow-[0_2px_10px_rgba(245,158,11,0.1)]',
       icon: <Clock size={10} />,
-      label: 'PARTIALLY PAID'
+      label: 'PARTIALLY'
     },
     [PaymentStatus.UNPAID]: {
-      style: overdue ? 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse' : 'bg-slate-50 text-slate-600 border-slate-200',
+      style: overdue
+        ? 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse shadow-[0_2px_15px_rgba(225,29,72,0.15)]'
+        : 'bg-slate-50 text-slate-500 border-slate-200',
       icon: overdue ? <AlertCircle size={10} /> : <Clock size={10} />,
       label: overdue ? 'OVERDUE' : 'UNPAID'
     },
@@ -37,7 +39,7 @@ const StatusBadge = ({ status, overdue }: { status: PaymentStatus, overdue?: boo
   const { style, icon, label } = config[status] || config[PaymentStatus.UNPAID];
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black border transition-all shadow-sm ${style} tracking-widest`}>
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[8px] font-black border transition-all ${style} tracking-[0.1em]`}>
       {icon}
       {label}
     </span>
@@ -47,14 +49,14 @@ const StatusBadge = ({ status, overdue }: { status: PaymentStatus, overdue?: boo
 const ProgressBar = ({ paid, total }: { paid: number, total: number }) => {
   const percent = Math.min(100, Math.max(0, (paid / total) * 100));
   return (
-    <div className="w-full max-w-[100px] flex flex-col gap-1">
-      <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-        <span>Progress</span>
-        <span>{Math.round(percent)}%</span>
+    <div className="w-full max-w-[120px] flex flex-col gap-2">
+      <div className="flex justify-between text-[8px] font-black text-slate-400 uppercase tracking-widest">
+        <span>Collection</span>
+        <span className={percent === 100 ? 'text-emerald-500' : 'text-slate-600'}>{Math.round(percent)}%</span>
       </div>
-      <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden p-[2px]">
         <div
-          className={`h-full rounded-full transition-all duration-1000 ease-out ${percent === 100 ? 'bg-emerald-500' : 'bg-emerald-400'}`}
+          className={`h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(16,185,129,0.2)] ${percent === 100 ? 'bg-emerald-500' : 'bg-brand-500'}`}
           style={{ width: `${percent}%` }}
         />
       </div>
@@ -87,13 +89,23 @@ const InvoiceList = () => {
       newStatus = PaymentStatus.PAID;
     }
 
-    updateInvoice({
+    const updatedInvoice: Invoice = {
       ...inv,
       amountPaid: Math.min(newPaid, inv.total),
       balanceDue: newStatus === PaymentStatus.PAID ? 0 : Math.max(0, newBalance),
       status: newStatus,
       paymentDate: newStatus === PaymentStatus.PAID ? new Date().toISOString() : inv.paymentDate
-    });
+    };
+
+    updateInvoice(updatedInvoice);
+
+    // Auto Xero Sync on Full Payment (if not already synced)
+    if (newStatus === PaymentStatus.PAID && inv.xeroSyncStatus !== 'synced') {
+      setTimeout(() => {
+        handleXeroTransfer(updatedInvoice, true); // true for auto-sync mode
+      }, 500);
+    }
+
     setEditingPaymentId(null);
     setPaymentAmount('');
   };
@@ -141,19 +153,46 @@ const InvoiceList = () => {
     }
   };
 
-  const handleXeroTransfer = async (inv: Invoice) => {
+  const handleXeroTransfer = async (inv: Invoice, isAuto = false) => {
     if (!settings.xeroWebhookUrl) {
-      alert("Please configure Xero Webhook URL in Settings -> Integrations first.");
+      if (!isAuto) alert("Please configure Xero Webhook URL in Settings -> Integrations first.");
       return;
     }
-    if (window.confirm(`Transfer ${inv.invoiceNumber} to Xero?`)) {
+
+    if (inv.xeroSyncStatus === 'synced') {
+      if (!isAuto) alert("This invoice has already been synced with Xero.");
+      return;
+    }
+
+    const confirmMsg = isAuto
+      ? `Invoice ${inv.invoiceNumber} is fully paid. Auto-transfer to Xero?`
+      : `Transfer ${inv.invoiceNumber} to Xero?`;
+
+    if (window.confirm(confirmMsg)) {
       try {
         const fullCustomer = customers.find(c => c.id === inv.customerId);
         const success = await sendToXero(inv, fullCustomer, settings, user);
-        if (success) alert("Transferred to Xero successfully!");
-        else alert("Failed to transfer to Xero.");
+
+        if (success) {
+          await updateInvoice({
+            ...inv,
+            xeroSyncStatus: 'synced',
+            xeroSyncDate: new Date().toISOString()
+          });
+          if (!isAuto) alert("Transferred to Xero successfully!");
+        } else {
+          await updateInvoice({
+            ...inv,
+            xeroSyncStatus: 'failed'
+          });
+          alert("Failed to transfer to Xero. Please check logs/webhook.");
+        }
       } catch (e) {
         console.error(e);
+        await updateInvoice({
+          ...inv,
+          xeroSyncStatus: 'failed'
+        });
         alert("Xero transfer failed.");
       }
     }
@@ -194,12 +233,12 @@ const InvoiceList = () => {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-slate-50/70 border-b-2 border-slate-100">
-                <th className="text-left py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Customer</th>
-                <th className="text-right py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Amount</th>
-                <th className="text-center py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Progress</th>
-                <th className="text-center py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Status</th>
-                <th className="text-center py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Actions</th>
+              <tr className="bg-slate-900 border-b border-slate-800">
+                <th className="text-left py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Customer Intelligence</th>
+                <th className="text-right py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Financials</th>
+                <th className="text-center py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Collection Status</th>
+                <th className="text-center py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Payment State</th>
+                <th className="text-center py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Operations</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -227,7 +266,19 @@ const InvoiceList = () => {
                         <ProgressBar paid={inv.amountPaid || 0} total={inv.total} />
                       </td>
                       <td className="py-6 px-10 text-center">
-                        <StatusBadge status={inv.status} overdue={!!isOverdue} />
+                        <div className="flex flex-col gap-1.5 min-w-[100px]">
+                          <StatusBadge status={inv.status} overdue={isOverdue} />
+                          {inv.xeroSyncStatus === 'synced' && (
+                            <span className="inline-flex items-center justify-center gap-1 text-[8px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100 uppercase tracking-tighter">
+                              <Check size={8} /> Xero Synced
+                            </span>
+                          )}
+                          {inv.xeroSyncStatus === 'failed' && (
+                            <span className="inline-flex items-center justify-center gap-1 text-[8px] font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-100 uppercase tracking-tighter">
+                              <X size={8} /> Xero Failed
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-6 px-10">
                         <div className="flex items-center justify-center gap-2">
@@ -290,55 +341,62 @@ const InvoiceList = () => {
                                   setEditingPaymentId(inv.id);
                                   setPaymentAmount((inv.balanceDue || 0).toString());
                                 }}
-                                className="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-500 hover:text-white rounded-xl transition-all"
+                                className="p-3 text-emerald-600 bg-emerald-50 hover:bg-emerald-500 hover:text-white rounded-xl transition-all"
                                 title="Record Payment"
                               >
-                                <CreditCard size={16} />
+                                <CreditCard size={20} />
                               </button>
                               <button
                                 onClick={() => { setEditingInvoice(inv); setView('CREATE_INVOICE'); }}
-                                className="p-2 text-amber-600 bg-amber-50 hover:bg-amber-500 hover:text-white rounded-xl transition-all"
+                                className="p-3 text-amber-600 bg-amber-50 hover:bg-amber-500 hover:text-white rounded-xl transition-all"
                                 title="Edit"
                               >
-                                <Edit size={16} />
+                                <Edit size={20} />
                               </button>
                               <button
                                 onClick={async () => {
-                                  const url = await generatePreviewUrl(inv, settings, undefined, user?.name || 'Admin');
-                                  window.open(url, '_blank');
+                                  const previewWindow = window.open('about:blank', '_blank');
+                                  try {
+                                    const url = await generatePreviewUrl(inv, settings, undefined, user?.name || 'Admin');
+                                    if (previewWindow) previewWindow.location.href = url;
+                                  } catch (err) {
+                                    console.error("Preview failed:", err);
+                                    if (previewWindow) previewWindow.close();
+                                    alert("Failed to generate preview.");
+                                  }
                                 }}
-                                className="p-2 text-brand-600 bg-brand-50 hover:bg-brand-600 hover:text-white rounded-xl transition-all"
+                                className="p-3 text-brand-600 bg-brand-50 hover:bg-brand-600 hover:text-white rounded-xl transition-all"
                                 title="View PDF"
                               >
-                                <Eye size={16} />
+                                <Eye size={20} />
                               </button>
                               <button
                                 onClick={() => handleSendEmail(inv)}
-                                className="p-2 text-violet-600 bg-violet-50 hover:bg-violet-500 hover:text-white rounded-xl transition-all"
+                                className="p-3 text-violet-600 bg-violet-50 hover:bg-violet-500 hover:text-white rounded-xl transition-all"
                                 title="Send via Email (n8n)"
                               >
-                                <Mail size={16} />
+                                <Mail size={20} />
                               </button>
                               <button
                                 onClick={() => handleXeroTransfer(inv)}
-                                className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-500 hover:text-white rounded-xl transition-all"
+                                className="p-3 text-blue-600 bg-blue-50 hover:bg-blue-500 hover:text-white rounded-xl transition-all"
                                 title="Send to Xero"
                               >
-                                <ArrowRightCircle size={16} />
+                                <ArrowRightCircle size={20} />
                               </button>
                               <button
                                 onClick={() => downloadInvoicePDF(inv, settings, undefined, user?.name || 'Admin')}
-                                className="p-2 text-slate-600 bg-slate-50 hover:bg-slate-500 hover:text-white rounded-xl transition-all"
+                                className="p-3 text-slate-600 bg-slate-50 hover:bg-slate-500 hover:text-white rounded-xl transition-all"
                                 title="Download"
                               >
-                                <Download size={16} />
+                                <Download size={20} />
                               </button>
                               <button
                                 onClick={() => handleDelete(inv)}
-                                className="p-2 text-rose-600 bg-rose-50 hover:bg-rose-500 hover:text-white rounded-xl transition-all"
+                                className="p-3 text-rose-600 bg-rose-50 hover:bg-rose-500 hover:text-white rounded-xl transition-all"
                                 title="Delete"
                               >
-                                <Trash2 size={16} />
+                                <Trash2 size={20} />
                               </button>
                             </>
                           )}

@@ -76,7 +76,10 @@ export const storageService = {
       lastReminderSent: inv.last_reminder_sent ? String(inv.last_reminder_sent) : undefined,
       documentType: inv.document_type ? String(inv.document_type) : undefined,
       validUntil: inv.valid_until ? String(inv.valid_until) : undefined,
-      paymentDate: inv.payment_date ? String(inv.payment_date) : undefined
+      paymentDate: inv.payment_date ? String(inv.payment_date) : undefined,
+      xeroSyncStatus: inv.xero_sync_status ? (inv.xero_sync_status as any) : undefined,
+      xeroSyncDate: inv.xero_sync_date ? String(inv.xero_sync_date) : undefined,
+      isVatInclusive: !!inv.is_vat_inclusive
     }));
   },
 
@@ -105,7 +108,10 @@ export const storageService = {
       last_reminder_sent: invoice.lastReminderSent ? String(invoice.lastReminderSent) : null,
       document_type: invoice.documentType ? String(invoice.documentType) : 'invoice',
       valid_until: invoice.validUntil ? String(invoice.validUntil) : null,
-      payment_date: invoice.paymentDate ? String(invoice.paymentDate) : null
+      payment_date: invoice.paymentDate ? String(invoice.paymentDate) : null,
+      xero_sync_status: invoice.xeroSyncStatus || 'not_synced',
+      xero_sync_date: invoice.xeroSyncDate || null,
+      is_vat_inclusive: !!invoice.isVatInclusive
     };
     const { error } = await supabase.from('invoices').insert([dbInvoice]);
     if (error) throw error;
@@ -137,6 +143,9 @@ export const storageService = {
     if (invoice.status !== undefined) updatePayload.status = String(invoice.status);
     if (invoice.lastReminderSent !== undefined) updatePayload.last_reminder_sent = invoice.lastReminderSent ? String(invoice.lastReminderSent) : null;
     if (invoice.paymentDate !== undefined) updatePayload.payment_date = invoice.paymentDate ? String(invoice.paymentDate) : null;
+    if (invoice.xeroSyncStatus !== undefined) updatePayload.xero_sync_status = String(invoice.xeroSyncStatus);
+    if (invoice.xeroSyncDate !== undefined) updatePayload.xero_sync_date = invoice.xeroSyncDate ? String(invoice.xeroSyncDate) : null;
+    if (invoice.isVatInclusive !== undefined) updatePayload.is_vat_inclusive = !!invoice.isVatInclusive;
 
     if (Object.keys(updatePayload).length === 0) return;
 

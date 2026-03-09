@@ -28,6 +28,7 @@ import {
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { analyzeInvoiceTrends, generateReminderMessage } from '../services/geminiService.ts';
 import { generatePreviewUrl } from '../services/pdfService';
+import { DatePicker } from '../components/DatePicker';
 
 const safeRender = (val: any): string => {
   if (val === null || val === undefined) return '';
@@ -52,20 +53,19 @@ const formatCurrency = (amount: number) => {
 };
 
 const StatCard = ({ label, value, icon: Icon, color }: any) => {
-  // Extract the base color name (e.g., 'emerald' from 'bg-emerald-500')
   const colorName = color?.split('-')[1] || 'slate';
 
   return (
-    <div className="relative overflow-hidden bg-white p-6 rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/40 hover:shadow-2xl hover:shadow-slate-200/60 hover:-translate-y-1 transition-all duration-300 group">
-      {/* Background Gradient Blob */}
-      <div className={`absolute -top-10 -right-10 w-40 h-40 rounded-full blur-3xl opacity-10 bg-${colorName}-500 group-hover:opacity-20 transition-opacity`} />
+    <div className="relative overflow-hidden bg-white/80 backdrop-blur-sm p-8 rounded-[2.5rem] border border-white/50 shadow-[0_20px_40px_rgba(0,0,0,0.04)] hover:shadow-[0_30px_60px_rgba(0,0,0,0.08)] hover:-translate-y-1.5 transition-all duration-500 group">
+      {/* Background Gradient Blur */}
+      <div className={`absolute -top-12 -right-12 w-48 h-48 rounded-full blur-3xl opacity-10 bg-${colorName}-500 group-hover:opacity-20 transition-all duration-700`} />
 
-      <div className="relative flex items-start justify-between z-10">
-        <div>
-          <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{safeRender(label)}</p>
-          <h3 className="text-3xl font-black text-slate-800 mt-2 tracking-tight">{safeRender(value)}</h3>
+      <div className="relative flex items-center justify-between z-10">
+        <div className="space-y-1">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{safeRender(label)}</p>
+          <h3 className="text-3xl font-black text-slate-900 tracking-tight">{safeRender(value)}</h3>
         </div>
-        <div className={`p-3.5 rounded-2xl ${color} shadow-lg shadow-${colorName}-500/20 group-hover:scale-110 transition-transform duration-300`}>
+        <div className={`p-4 rounded-2xl ${color} shadow-2xl shadow-${colorName}-500/30 group-hover:scale-110 transition-all duration-500 transform group-hover:rotate-6`}>
           <Icon size={24} className="text-white" />
         </div>
       </div>
@@ -88,90 +88,107 @@ const ClientDetailModal = ({ invoice, onClose, onSendReminder, isReminding }: {
   const isOverdue = diffDays < 0;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-slate-100">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-500"
+        onClick={onClose}
+      />
+      <div className="bg-white/90 backdrop-blur-2xl rounded-[3rem] shadow-[0_40px_100px_rgba(0,0,0,0.2)] w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-500 border border-white/50 relative z-10">
         {/* Modal Header */}
-        <div className="p-8 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className={`h-16 w-16 rounded-3xl flex items-center justify-center text-white shadow-xl ${isOverdue ? 'bg-rose-500' : 'bg-brand-600'}`}>
-              <User size={32} />
+        <div className="p-10 bg-gradient-to-br from-slate-50/50 to-white/50 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <div className={`h-20 w-20 rounded-[2rem] flex items-center justify-center text-white shadow-2xl ${isOverdue ? 'bg-rose-500 shadow-rose-500/20' : 'bg-brand-600 shadow-brand-500/20'}`}>
+              <User size={36} />
             </div>
             <div>
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight">{invoice.customerName}</h2>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Client Profile & Payment Status</p>
+              <h2 className="text-3xl font-black text-slate-900 tracking-tight leading-none uppercase">{invoice.customerName}</h2>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mt-2">Client Intelligence & Status</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-4 text-slate-400 hover:text-slate-900 hover:bg-slate-200 rounded-full transition-all">
+          <button onClick={onClose} className="p-4 text-slate-400 hover:text-slate-900 hover:bg-white rounded-full transition-all shadow-sm hover:shadow-md">
             <X size={24} />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="p-8 space-y-8 overflow-y-auto max-h-[70vh] custom-scrollbar">
-          {/* Contact & Status Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 text-slate-600">
-                <Phone size={18} className="text-brand-500" />
-                <span className="text-sm font-bold">{invoice.customerPhone || 'No phone provided'}</span>
+        <div className="p-10 space-y-10 overflow-y-auto max-h-[65vh] custom-scrollbar">
+          {/* Status & Contact Banner */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-6">
+              <div className="group flex items-center gap-4 text-slate-600 bg-slate-50/50 p-4 rounded-2xl border border-slate-100 hover:bg-white hover:border-brand-100 transition-all">
+                <div className="p-2 bg-white rounded-lg shadow-sm text-brand-500">
+                  <Phone size={18} />
+                </div>
+                <span className="text-sm font-bold tracking-tight">{invoice.customerPhone || 'No phone provided'}</span>
               </div>
-              <div className="flex items-center gap-3 text-slate-600">
-                <Mail size={18} className="text-brand-500" />
-                <span className="text-sm font-bold">{invoice.customerEmail || 'No email provided'}</span>
+              <div className="group flex items-center gap-4 text-slate-600 bg-slate-50/50 p-4 rounded-2xl border border-slate-100 hover:bg-white hover:border-brand-100 transition-all">
+                <div className="p-2 bg-white rounded-lg shadow-sm text-brand-500">
+                  <Mail size={18} />
+                </div>
+                <span className="text-sm font-bold tracking-tight">{invoice.customerEmail || 'No email provided'}</span>
               </div>
-              <div className="flex items-start gap-3 text-slate-600">
-                <Clock size={18} className="text-brand-500 mt-1" />
+              <div className="group flex items-start gap-4 text-slate-600 bg-slate-50/50 p-4 rounded-2xl border border-slate-100 hover:bg-white hover:border-brand-100 transition-all">
+                <div className="p-2 bg-white rounded-lg shadow-sm text-brand-500">
+                  <Clock size={18} />
+                </div>
                 <div>
-                  <span className="text-sm font-bold block">Invoice {invoice.invoiceNumber}</span>
-                  <span className="text-[10px] font-black text-slate-400 uppercase">Ref: {invoice.id.slice(-6)}</span>
+                  <span className="text-sm font-bold block leading-tight">Invoice {invoice.invoiceNumber}</span>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">REF: {invoice.id.slice(-8).toUpperCase()}</span>
                 </div>
               </div>
             </div>
-            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex flex-col items-center justify-center text-center">
-              <div className={`text-4xl font-black mb-1 ${isOverdue ? 'text-rose-600' : 'text-brand-600'}`}>
+
+            <div className="bg-slate-900 rounded-[2.5rem] p-8 flex flex-col items-center justify-center text-center relative overflow-hidden group shadow-2xl shadow-slate-900/20">
+              <div className={`absolute top-0 right-0 w-32 h-32 blur-[60px] opacity-20 bg-${isOverdue ? 'rose' : 'brand'}-500`} />
+              <div className={`text-6xl font-black mb-2 tracking-tighter ${isOverdue ? 'text-rose-400' : 'text-brand-400'}`}>
                 {Math.abs(diffDays)}
               </div>
-              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                {isOverdue ? 'Days Overdue' : 'Days Until Due'}
+              <div className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">
+                {isOverdue ? 'Days Overdue' : 'Days Remaining'}
               </div>
-              <div className="mt-4 flex items-center gap-2 text-xs font-bold text-slate-600 bg-white px-4 py-2 rounded-full border border-slate-200">
-                <Calendar size={14} className="text-brand-500" />
+              <div className="mt-8 flex items-center gap-2 text-[10px] font-black tracking-widest text-slate-300 bg-white/5 px-6 py-2.5 rounded-full border border-white/10 backdrop-blur-sm uppercase">
+                <Calendar size={14} className={isOverdue ? 'text-rose-400' : 'text-brand-400'} />
                 Due {new Date(invoice.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
               </div>
             </div>
           </div>
 
-          {/* Financials */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-white p-4 rounded-2xl border border-slate-100 text-center">
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total</div>
-              <div className="text-sm font-black text-slate-900">{formatCurrency(invoice.total)}</div>
-            </div>
-            <div className="bg-white p-4 rounded-2xl border border-slate-100 text-center">
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Paid</div>
-              <div className="text-sm font-black text-emerald-600">{formatCurrency(invoice.amountPaid)}</div>
-            </div>
-            <div className="bg-slate-900 p-4 rounded-2xl text-center shadow-lg shadow-slate-900/20">
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Balance</div>
-              <div className="text-sm font-black text-brand-400">{formatCurrency(invoice.balanceDue)}</div>
-            </div>
+          {/* Money Strip */}
+          <div className="grid grid-cols-3 gap-6">
+            {[
+              { label: 'Total', value: invoice.total, color: 'text-slate-900' },
+              { label: 'Paid', value: invoice.amountPaid, color: 'text-emerald-500' },
+              { label: 'Current Balance', value: invoice.balanceDue, color: 'text-brand-500', highlight: true }
+            ].map((stat, i) => (
+              <div key={i} className={`p-6 rounded-3xl border ${stat.highlight ? 'bg-slate-50 border-brand-100 ring-2 ring-brand-500/5' : 'bg-white border-slate-100'} text-center transition-all hover:scale-105`}>
+                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{stat.label}</div>
+                <div className={`text-lg font-black ${stat.color}`}>{formatCurrency(stat.value)}</div>
+              </div>
+            ))}
           </div>
 
-          {/* Product List */}
-          <div className="space-y-4">
-            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-              <Package size={14} /> Ordered Products
+          {/* Detailed Items */}
+          <div className="space-y-6">
+            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] flex items-center gap-3">
+              <div className="w-6 h-[2px] bg-brand-500/30 rounded-full" />
+              Inventory & Items
+              <div className="flex-1 h-[1px] bg-slate-100" />
             </h3>
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 gap-3">
               {invoice.items.map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <div>
-                    <div className="text-xs font-black text-slate-900">{item.description}</div>
-                    <div className="text-[10px] font-bold text-slate-400 mt-0.5">{item.productId}</div>
+                <div key={idx} className="flex items-center justify-between p-5 bg-slate-50/50 rounded-2xl border border-slate-100 hover:bg-white hover:shadow-lg hover:shadow-slate-200/40 transition-all cursor-default">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-400 shadow-sm border border-slate-50">
+                      <Package size={18} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-black text-slate-800 tracking-tight">{item.description}</div>
+                      <div className="text-[10px] font-bold text-slate-400 tracking-wider">CODE: {item.productId.slice(0, 8).toUpperCase()}</div>
+                    </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs font-black text-slate-700">{item.quantity} units</div>
-                    <div className="text-[10px] font-bold text-slate-400">{formatCurrency(item.total)}</div>
+                    <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded-md inline-block mb-1">{item.quantity} units</div>
+                    <div className="text-sm font-black text-slate-900">{formatCurrency(item.total)}</div>
                   </div>
                 </div>
               ))}
@@ -179,28 +196,31 @@ const ClientDetailModal = ({ invoice, onClose, onSendReminder, isReminding }: {
           </div>
 
           {invoice.notes && (
-            <div className="p-6 bg-amber-50 rounded-3xl border border-amber-100">
-              <h4 className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-2">Project Notes</h4>
-              <p className="text-xs text-amber-800 italic leading-relaxed">"{invoice.notes}"</p>
+            <div className="relative p-8 bg-blue-50/50 rounded-[2.5rem] border border-blue-100 overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 text-blue-200 group-hover:text-blue-300 transition-colors">
+                <Sparkles size={24} />
+              </div>
+              <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-3">Project Directives</h4>
+              <p className="text-xs text-blue-800 font-medium leading-relaxed italic border-l-4 border-blue-200 pl-4">{invoice.notes}</p>
             </div>
           )}
         </div>
 
         {/* Modal Footer */}
-        <div className="p-8 bg-slate-50 border-t border-slate-100 flex gap-4">
+        <div className="p-10 bg-slate-900 flex gap-6 mt-auto shadow-[0_-20px_50px_rgba(0,0,0,0.1)]">
           <button
             onClick={onClose}
-            className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-900 transition-all"
+            className="flex-1 py-5 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-white transition-all border border-white/5 rounded-2xl hover:bg-white/5"
           >
-            Close Details
+            Collapse
           </button>
           <button
             onClick={() => onSendReminder(invoice)}
             disabled={isReminding}
-            className="flex-[2] bg-brand-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-brand-700 shadow-xl shadow-brand-500/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+            className="flex-[2] bg-brand-600 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] hover:bg-brand-500 shadow-2xl shadow-brand-600/30 transition-all flex items-center justify-center gap-4 disabled:opacity-50 active:scale-95 transform"
           >
-            {isReminding ? <Activity size={18} className="animate-spin" /> : <Send size={18} />}
-            Send AI Payment Reminder
+            {isReminding ? <Activity size={20} className="animate-spin" /> : <Send size={20} />}
+            Trigger Collection Protocol
           </button>
         </div>
       </div>
@@ -385,6 +405,8 @@ const Dashboard = () => {
     ).length;
   }, [invoices]);
 
+  // Remove automated reminder automation as requested (switching to manual/batch)
+  /*
   useEffect(() => {
     const runAutomation = async () => {
       if (isRunningAutomation.current || invoices.length === 0 || databaseError) return;
@@ -454,6 +476,7 @@ const Dashboard = () => {
 
     runAutomation();
   }, [invoices.length, databaseError, updateInvoice]);
+  */
 
   const handleManualReminder = async (inv: Invoice) => {
     setManualRemindingId(inv.id);
@@ -715,7 +738,34 @@ const Dashboard = () => {
     }
   }, [invoices, trendView, customStartDate, customEndDate]);
 
-  if (isLocked) {
+  const handleSendAllReminders = async () => {
+    if (reminderCandidates.length === 0) return;
+
+    const count = reminderCandidates.length;
+    if (!window.confirm(`Send reminders for all ${count} overdue/due today invoices at once?`)) return;
+
+    // Process in sequence to avoid overwhelming the webhook
+    const today = new Date().toISOString().split('T')[0];
+
+    for (const inv of reminderCandidates) {
+      const lastSent = localModeRef.current ? localReminderTracker.current[inv.id] : inv.lastReminderSent;
+
+      if (lastSent !== today) {
+        setManualRemindingId(inv.id);
+        try {
+          await handleManualReminder(inv);
+        } catch (e) {
+          console.error(`Failed to send reminder for ${inv.invoiceNumber}`, e);
+        }
+      }
+    }
+
+    setManualRemindingId(null);
+    alert(`Batch reminder process completed (if any were due).`);
+  };
+
+  const dashboardLocked = isLocked || !sessionStorage.getItem('dashboard_unlocked');
+  if (dashboardLocked) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] p-4 animate-in fade-in zoom-in-95 duration-500">
         <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl shadow-slate-200 border border-slate-100 max-w-sm w-full text-center">
@@ -759,33 +809,42 @@ const Dashboard = () => {
       {/* Client Detail Modal */}
       {/* Custom Date Range Modal */}
       {showCustomDateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl space-y-6 animate-in zoom-in-95 duration-200">
-            <h3 className="text-2xl font-black text-slate-800 tracking-tight">Select Date Range</h3>
-            <div className="space-y-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300"
+            onClick={() => { setShowCustomDateModal(false); setDateFilter('all'); }}
+          />
+          <div className="bg-white/90 backdrop-blur-xl rounded-[2.5rem] p-8 w-full max-w-md shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-white/50 space-y-8 animate-in zoom-in-95 duration-300 relative z-10">
+            <div className="flex items-center justify-between">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Start Date</label>
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:border-brand-500 outline-none transition-all"
-                />
+                <h3 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Filter <span className="text-brand-500">Range</span></h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Select dates for analytics</p>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">End Date</label>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:border-brand-500 outline-none transition-all"
-                />
-              </div>
-            </div>
-            <div className="flex gap-3 pt-2">
               <button
                 onClick={() => { setShowCustomDateModal(false); setDateFilter('all'); }}
-                className="flex-1 py-3 px-6 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-colors"
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6">
+              <DatePicker
+                label="Start Date"
+                value={customStartDate}
+                onChange={setCustomStartDate}
+              />
+              <DatePicker
+                label="End Date"
+                value={customEndDate}
+                onChange={setCustomEndDate}
+              />
+            </div>
+
+            <div className="flex gap-4 pt-4">
+              <button
+                onClick={() => { setShowCustomDateModal(false); setDateFilter('all'); }}
+                className="flex-1 py-4 px-6 rounded-2xl font-black text-xs text-slate-500 uppercase tracking-widest hover:bg-slate-50 transition-all border-2 border-transparent hover:border-slate-100"
               >
                 Cancel
               </button>
@@ -797,9 +856,9 @@ const Dashboard = () => {
                   }
                 }}
                 disabled={!customStartDate || !customEndDate}
-                className="flex-1 py-3 px-6 bg-brand-600 text-white rounded-xl font-bold shadow-lg shadow-brand-500/20 hover:bg-brand-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-[1.5] py-4 px-6 bg-brand-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-brand-500/20 hover:bg-brand-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-95"
               >
-                Apply Filter
+                Apply Filters
               </button>
             </div>
           </div>
@@ -856,6 +915,17 @@ const Dashboard = () => {
           <div className="text-xs font-black bg-white text-slate-700 px-5 py-2.5 rounded-2xl border border-slate-200 shadow-sm">
             {new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
           </div>
+          <button
+            onClick={() => {
+              setIsLocked(true);
+              setPin(['', '', '', '']);
+              sessionStorage.removeItem('dashboard_unlocked');
+            }}
+            className="p-3 text-slate-400 hover:text-rose-600 bg-white hover:bg-rose-50 rounded-2xl border border-slate-200 shadow-sm transition-all"
+            title="Lock Dashboard"
+          >
+            <Lock size={20} />
+          </button>
         </div>
       </div>
 
@@ -883,9 +953,19 @@ const Dashboard = () => {
                 </div>
                 Priority Actions
               </h3>
-              <span className="text-[10px] font-black text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 uppercase tracking-wider">
-                {reminderCandidates.length} Pending
-              </span>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={handleSendAllReminders}
+                  disabled={reminderCandidates.length === 0 || manualRemindingId !== null}
+                  className="text-[10px] font-black text-brand-600 bg-brand-50 hover:bg-brand-100 px-4 py-2 rounded-xl border border-brand-100 uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <Send size={12} />
+                  Send All Overdue
+                </button>
+                <span className="text-[10px] font-black text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 uppercase tracking-wider">
+                  {reminderCandidates.length} Pending
+                </span>
+              </div>
             </div>
             <div className="p-6 max-h-[500px] overflow-y-auto custom-scrollbar bg-slate-50/30">
               {reminderCandidates.length === 0 ? (
@@ -911,52 +991,60 @@ const Dashboard = () => {
                       <div
                         key={inv.id}
                         onClick={() => setSelectedInvoiceForDetail(inv)}
-                        className={`group p-5 rounded-2xl border transition-all hover:shadow-xl hover:-translate-y-0.5 cursor-pointer bg-white ${isOverdue ? 'border-rose-100 shadow-rose-100/50' : 'border-slate-100 shadow-sm'}`}
+                        className={`group p-6 rounded-[2rem] border transition-all duration-300 hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)] hover:-translate-y-1 cursor-pointer bg-white relative overflow-hidden ${isOverdue ? 'border-rose-100 shadow-sm shadow-rose-100/50' : 'border-slate-100 shadow-sm shadow-slate-200/40'}`}
                       >
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                          <div className="flex items-start gap-4">
-                            <div className={`p-3.5 rounded-2xl ${isOverdue ? 'bg-rose-50 text-rose-600' : 'bg-slate-50 text-slate-600'}`}>
-                              <User size={20} />
+                        {isOverdue && (
+                          <div className="absolute top-0 right-0 w-24 h-24 blur-3xl opacity-5 bg-rose-500" />
+                        )}
+                        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                          <div className="flex items-center gap-5">
+                            <div className={`p-4 rounded-2xl transition-all duration-300 group-hover:scale-110 ${isOverdue ? 'bg-rose-50 text-rose-600 shadow-xl shadow-rose-500/10' : 'bg-slate-50 text-slate-600'}`}>
+                              <User size={22} />
                             </div>
                             <div>
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-bold text-slate-900 text-lg leading-tight group-hover:text-brand-600 transition-colors">{safeRender(inv.customerName)}</h4>
+                              <div className="flex items-center gap-3">
+                                <h4 className="font-black text-slate-900 text-xl tracking-tight group-hover:text-brand-600 transition-colors">{safeRender(inv.customerName)}</h4>
+                                {isOverdue && (
+                                  <span className="px-2 py-0.5 bg-rose-50 text-rose-500 text-[8px] font-black uppercase tracking-widest rounded-md border border-rose-100">Overdue</span>
+                                )}
                               </div>
-                              <p className="text-xs text-slate-500 font-medium mt-1 flex items-center gap-2">
-                                <span className="text-slate-400">#{safeRender(inv.invoiceNumber)}</span>
+                              <p className="text-xs text-slate-400 font-bold mt-1.5 flex items-center gap-2">
+                                <span className="tracking-widest uppercase">#{safeRender(inv.invoiceNumber)}</span>
                                 <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                                <span>{inv.customerPhone || 'No Phone'}</span>
+                                <span className="tracking-tight">{inv.customerPhone || 'No Phone'}</span>
                               </p>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-4" onClick={(e) => e.stopPropagation()}>
-                            <div className="text-right mr-2">
-                              <div className="text-sm font-black text-slate-900">{formatCurrency(inv.balanceDue)}</div>
-                              <div className={`text-[10px] font-black uppercase tracking-widest mt-0.5 ${isOverdue ? 'text-rose-500' : isDueToday ? 'text-brand-500' : 'text-slate-400'}`}>
-                                {isOverdue ? 'Overdue' : isDueToday ? 'Due Today' : `${Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 3600 * 24))} Days Left`}
+                          <div className="flex items-center gap-4 pl-12 md:pl-0 border-t md:border-t-0 border-slate-50 pt-4 md:pt-0" onClick={(e) => e.stopPropagation()}>
+                            <div className="text-right mr-4">
+                              <div className="text-lg font-black text-slate-900 tracking-tight">{formatCurrency(inv.balanceDue)}</div>
+                              <div className={`text-[10px] font-black uppercase tracking-[0.2em] mt-1 ${isOverdue ? 'text-rose-500' : isDueToday ? 'text-brand-500' : 'text-slate-400'}`}>
+                                {isOverdue ? 'CRITICAL' : isDueToday ? 'DUE TODAY' : `${Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 3600 * 24))} DAYS REMAINING`}
                               </div>
                             </div>
 
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handlePreview(inv); }}
-                              className="p-3 rounded-xl text-slate-400 hover:bg-slate-50 hover:text-slate-700 transition-all border border-transparent hover:border-slate-100"
-                              title="View PDF"
-                            >
-                              <Eye size={18} />
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handlePreview(inv); }}
+                                className="p-3.5 rounded-2xl text-slate-400 hover:bg-slate-100 hover:text-slate-900 transition-all border border-transparent hover:border-slate-200 active:scale-90"
+                                title="View PDF"
+                              >
+                                <Eye size={18} />
+                              </button>
 
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleManualReminder(inv); }}
-                              disabled={manualRemindingId === inv.id || lastSent === today.toISOString().split('T')[0]}
-                              className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${lastSent === today.toISOString().split('T')[0]
-                                ? 'bg-slate-100 text-slate-400 cursor-default'
-                                : 'bg-slate-900 text-white hover:bg-brand-600 shadow-xl shadow-slate-900/20'
-                                }`}
-                            >
-                              {manualRemindingId === inv.id ? <RefreshCcw size={14} className="animate-spin" /> : <Send size={14} />}
-                              {lastSent === today.toISOString().split('T')[0] ? 'Sent' : 'Remind'}
-                            </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleManualReminder(inv); }}
+                                disabled={manualRemindingId === inv.id || lastSent === today.toISOString().split('T')[0]}
+                                className={`px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-3 shadow-2xl active:scale-95 ${lastSent === today.toISOString().split('T')[0]
+                                  ? 'bg-slate-50 text-slate-300 border border-slate-100 cursor-default shadow-none'
+                                  : 'bg-slate-900 text-white hover:bg-brand-600 shadow-slate-900/20'
+                                  }`}
+                              >
+                                {manualRemindingId === inv.id ? <RefreshCcw size={14} className="animate-spin" /> : <Send size={14} />}
+                                {lastSent === today.toISOString().split('T')[0] ? 'SENT' : 'REMIND'}
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1014,32 +1102,54 @@ const Dashboard = () => {
 
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData}>
+                  <defs>
+                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#0ea5e9" stopOpacity={1} />
+                      <stop offset="100%" stopColor="#38bdf8" stopOpacity={0.8} />
+                    </linearGradient>
+                  </defs>
                   <XAxis
                     dataKey="name"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#94a3b8', fontSize: 10 }}
+                    tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
                     dy={10}
                   />
                   <YAxis
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#94a3b8', fontSize: 10 }}
-                    tickFormatter={(value) => formatCurrency(value)}
+                    tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                    tickFormatter={(value) => `€${value.toLocaleString()}`}
                   />
                   <Tooltip
-                    cursor={{ fill: '#f1f5f9' }}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
-                    formatter={(value: number) => [`€${formatCurrency(value)}`, 'Revenue']}
+                    cursor={{ fill: '#f8fafc', radius: 12 }}
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-white/90 backdrop-blur-xl p-4 rounded-2xl shadow-2xl border border-white/50 animate-in zoom-in-95 duration-200">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{label}</p>
+                            <p className="text-lg font-black text-slate-900">
+                              {formatCurrency(payload[0].value as number)}
+                            </p>
+                            <div className="mt-2 w-8 h-1 bg-brand-500 rounded-full" />
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
                   />
                   <Bar
                     dataKey="amount"
-                    fill="#0ea5e9"
-                    radius={[4, 4, 0, 0]}
-                    barSize={40}
+                    fill="url(#barGradient)"
+                    radius={[12, 12, 12, 12]}
+                    barSize={32}
                   >
                     {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.amount > 0 ? '#0ea5e9' : '#e2e8f0'} />
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={entry.amount > 0 ? 'url(#barGradient)' : '#f1f5f9'}
+                        className="transition-all duration-500 hover:opacity-80"
+                      />
                     ))}
                   </Bar>
                 </BarChart>

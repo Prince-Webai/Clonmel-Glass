@@ -26,33 +26,32 @@ const Quotes = () => {
     const getStatusBadge = (status: Quote['status']) => {
         const config = {
             PENDING: {
-                style: 'bg-amber-50 text-amber-700 border-amber-200',
+                style: 'bg-amber-50 text-amber-700 border-amber-200 shadow-[0_2px_10px_rgba(245,158,11,0.1)]',
                 icon: <Clock size={10} />,
                 label: 'PENDING'
             },
-            // Fallback for quotes created with Invoice status
             [PaymentStatus.UNPAID]: {
-                style: 'bg-amber-50 text-amber-700 border-amber-200',
+                style: 'bg-amber-50 text-amber-700 border-amber-200 shadow-[0_2px_10px_rgba(245,158,11,0.1)]',
                 icon: <Clock size={10} />,
                 label: 'PENDING'
             },
             ACCEPTED: {
-                style: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+                style: 'bg-emerald-50 text-emerald-700 border-emerald-100 shadow-[0_2px_10px_rgba(16,185,129,0.1)]',
                 icon: <CheckCircle size={10} />,
                 label: 'ACCEPTED'
             },
             [PaymentStatus.PAID]: {
-                style: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+                style: 'bg-emerald-50 text-emerald-700 border-emerald-100 shadow-[0_2px_10px_rgba(16,185,129,0.1)]',
                 icon: <CheckCircle size={10} />,
                 label: 'ACCEPTED'
             },
             REJECTED: {
-                style: 'bg-rose-50 text-rose-700 border-rose-200',
+                style: 'bg-rose-50 text-rose-700 border-rose-200 shadow-[0_2px_10px_rgba(225,29,72,0.1)]',
                 icon: <XCircle size={10} />,
                 label: 'REJECTED'
             },
             EXPIRED: {
-                style: 'bg-slate-50 text-slate-600 border-slate-200',
+                style: 'bg-slate-100 text-slate-500 border-slate-200',
                 icon: <Calendar size={10} />,
                 label: 'EXPIRED'
             }
@@ -60,7 +59,7 @@ const Quotes = () => {
 
         const { style, icon, label } = config[status] || config['PENDING'];
         return (
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black border transition-all shadow-sm ${style} tracking-widest`}>
+            <span className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[8px] font-black border transition-all ${style} tracking-[0.1em]`}>
                 {icon}
                 {label}
             </span>
@@ -120,12 +119,12 @@ const Quotes = () => {
                 <table className="w-full">
                     <thead className="bg-slate-900 border-b-2 border-slate-800">
                         <tr className="text-white">
-                            <th className="text-left py-4 px-3 md:py-6 md:px-10 text-[10px] font-black uppercase tracking-[0.2em]">Quote Details</th>
-                            <th className="hidden md:table-cell text-left py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Customer</th>
-                            <th className="text-right py-4 px-3 md:py-6 md:px-10 text-[10px] font-black uppercase tracking-[0.2em]">Amount</th>
+                            <th className="text-left py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Estimate Details</th>
+                            <th className="hidden md:table-cell text-left py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Customer Intelligence</th>
+                            <th className="text-right py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Estimate</th>
                             <th className="hidden md:table-cell text-center py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Valid Until</th>
-                            <th className="text-center py-4 px-3 md:py-6 md:px-10 text-[10px] font-black uppercase tracking-[0.2em]">Status</th>
-                            <th className="text-center py-4 px-3 md:py-6 md:px-10 text-[10px] font-black uppercase tracking-[0.2em]">Actions</th>
+                            <th className="text-center py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Lifecycle Status</th>
+                            <th className="text-center py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Operations</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -188,31 +187,38 @@ const Quotes = () => {
                                                     setEditingInvoice(quoteAsInvoice);
                                                     setView('CREATE_INVOICE');
                                                 }}
-                                                className="hidden md:block p-2 md:p-3 text-purple-600 bg-purple-50 hover:bg-purple-500 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm"
+                                                className="hidden md:block p-3 text-purple-600 bg-purple-50 hover:bg-purple-500 hover:text-white rounded-2xl transition-all shadow-sm"
                                                 title="Convert to Invoice"
                                             >
-                                                <FileOutput size={16} />
+                                                <FileOutput size={20} />
                                             </button>
                                             <button
                                                 onClick={() => { setEditingInvoice(quote); setView('CREATE_INVOICE'); }}
-                                                className="hidden md:block p-2 md:p-3 text-amber-500 bg-amber-50 hover:bg-amber-500 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm"
+                                                className="hidden md:block p-3 text-amber-500 bg-amber-50 hover:bg-amber-500 hover:text-white rounded-2xl transition-all shadow-sm"
                                                 title="Edit Quote"
                                             >
-                                                <Edit size={16} />
+                                                <Edit size={20} />
                                             </button>
                                             <button
                                                 onClick={async () => {
-                                                    const url = await generatePreviewUrl(quote, settings, undefined, user?.name || 'Admin');
-                                                    window.open(url, '_blank');
+                                                    const previewWindow = window.open('about:blank', '_blank');
+                                                    try {
+                                                        const url = await generatePreviewUrl(quote, settings, undefined, user?.name || 'Admin');
+                                                        if (previewWindow) previewWindow.location.href = url;
+                                                    } catch (err) {
+                                                        console.error("Preview failed:", err);
+                                                        if (previewWindow) previewWindow.close();
+                                                        alert("Failed to generate preview.");
+                                                    }
                                                 }}
-                                                className="p-3 text-brand-600 bg-brand-50 hover:bg-brand-600 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm active:scale-95"
+                                                className="p-3 text-brand-600 bg-brand-50 hover:bg-brand-600 hover:text-white rounded-2xl transition-all shadow-sm active:scale-95"
                                                 title="View Quote PDF"
                                             >
                                                 <Eye size={20} />
                                             </button>
                                             <button
                                                 onClick={() => downloadInvoicePDF(quote, settings, undefined, user?.name || 'Admin')}
-                                                className="p-3 text-slate-600 bg-slate-100 hover:bg-slate-600 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm active:scale-95"
+                                                className="p-3 text-slate-600 bg-slate-100 hover:bg-slate-600 hover:text-white rounded-2xl transition-all shadow-sm active:scale-95"
                                                 title="Download Quote PDF"
                                             >
                                                 <Download size={20} />
@@ -223,10 +229,10 @@ const Quotes = () => {
                                                         deleteInvoice(quote.id);
                                                     }
                                                 }}
-                                                className="hidden md:block p-2 md:p-3 text-rose-500 bg-rose-50 hover:bg-rose-500 hover:text-white rounded-xl md:rounded-2xl transition-all shadow-sm"
+                                                className="hidden md:block p-3 text-rose-500 bg-rose-50 hover:bg-rose-500 hover:text-white rounded-2xl transition-all shadow-sm"
                                                 title="Delete Quote"
                                             >
-                                                <Trash2 size={16} />
+                                                <Trash2 size={20} />
                                             </button>
                                         </div>
                                     </td>
@@ -308,8 +314,15 @@ const Quotes = () => {
                                 </button>
                                 <button
                                     onClick={async () => {
-                                        const url = await generatePreviewUrl(quote, settings, undefined, user?.name || 'Admin');
-                                        window.open(url, '_blank');
+                                        const previewWindow = window.open('about:blank', '_blank');
+                                        try {
+                                            const url = await generatePreviewUrl(quote, settings, undefined, user?.name || 'Admin');
+                                            if (previewWindow) previewWindow.location.href = url;
+                                        } catch (err) {
+                                            console.error("Preview failed:", err);
+                                            if (previewWindow) previewWindow.close();
+                                            alert("Failed to generate preview.");
+                                        }
                                     }}
                                     className="flex flex-col items-center justify-center p-2 bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100 transition-colors"
                                 >

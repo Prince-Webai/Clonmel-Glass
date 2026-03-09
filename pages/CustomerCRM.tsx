@@ -562,16 +562,6 @@ const CustomerCRM = () => {
                                     />
                                 </div>
 
-                                <div className="md:col-span-2">
-                                    <label className="block text-xs font-black text-slate-600 mb-2 uppercase tracking-wider">Country</label>
-                                    <input
-                                        type="text"
-                                        value={formData.country}
-                                        onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                                        className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition-all"
-                                        placeholder="Ireland"
-                                    />
-                                </div>
 
                                 <div className="md:col-span-2">
                                     <label className="block text-xs font-black text-slate-600 mb-2 uppercase tracking-wider">Tags</label>

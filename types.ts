@@ -69,6 +69,9 @@ export interface Invoice {
   reminderCount?: number; // Number of reminders sent
   validUntil?: string;
   paymentDate?: string; // ISO Date when fully paid
+  xeroSyncStatus?: 'synced' | 'failed' | 'not_synced';
+  xeroSyncDate?: string;
+  isVatInclusive?: boolean;
 }
 
 export interface Customer {
@@ -112,6 +115,9 @@ export interface Quote {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  xeroSyncStatus?: 'synced' | 'failed' | 'not_synced';
+  xeroSyncDate?: string;
+  isVatInclusive?: boolean;
 }
 
 export type ViewState = 'LOGIN' | 'DASHBOARD' | 'INVOICES' | 'CREATE_INVOICE' | 'PRODUCTS' | 'USERS' | 'CALENDAR' | 'CUSTOMERS' | 'QUOTES' | 'SETTINGS';

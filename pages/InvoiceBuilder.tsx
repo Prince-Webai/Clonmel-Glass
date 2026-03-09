@@ -37,6 +37,7 @@ const InvoiceBuilder = () => {
       setNotes(editingInvoice.notes || '');
       setCompany(editingInvoice.company || 'clonmel');
       setTaxRate(editingInvoice.taxRate || settings.taxRate || 23);
+      setIsVatInclusive(!!editingInvoice.isVatInclusive);
 
       // Smart Conversion Prefix Check
       if (editingInvoice.documentType === 'invoice' && (editingInvoice.invoiceNumber.startsWith('QT') || editingInvoice.invoiceNumber.startsWith('qt'))) {
@@ -83,6 +84,7 @@ const InvoiceBuilder = () => {
   const [editQty, setEditQty] = useState('');
   const [editPrice, setEditPrice] = useState('');
   const [notes, setNotes] = useState('');
+  const [isVatInclusive, setIsVatInclusive] = useState(false);
   const [loadingAi, setLoadingAi] = useState(false);
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
@@ -106,6 +108,17 @@ const InvoiceBuilder = () => {
   const [showCalculator, setShowCalculator] = useState(false);
   const [manualPrice, setManualPrice] = useState<string>(''); // For manual override before adding
 
+  // Default VAT Inclusive for Mirrorzone
+  useEffect(() => {
+    if (!editingInvoice) {
+      if (company === 'mirrorzone') {
+        setIsVatInclusive(true);
+      } else {
+        setIsVatInclusive(false);
+      }
+    }
+  }, [company, editingInvoice]);
+
   // Filter and group products based on selected company
   const groupedProducts = useMemo(() => {
     const groups: Record<string, Product[]> = {};
@@ -127,7 +140,7 @@ const InvoiceBuilder = () => {
 
   // Derived state for the existing items
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-  const taxAmount = (subtotal * taxRate) / 100;
+  const taxAmount = isVatInclusive ? 0 : (subtotal * taxRate) / 100;
   const total = subtotal + taxAmount;
 
   // Real-time calculation for the CURRENT selection
@@ -136,7 +149,7 @@ const InvoiceBuilder = () => {
   const activePrice = manualPrice ? parseFloat(manualPrice) : (currentProduct ? currentProduct.price : 0);
   const numericQty = typeof quantity === 'string' ? parseFloat(quantity) || 0 : quantity;
   const currentLineTotal = activePrice * numericQty;
-  const currentLineTotalIncTax = currentLineTotal * (1 + (taxRate / 100));
+  const currentLineTotalIncTax = isVatInclusive ? currentLineTotal : currentLineTotal * (1 + (taxRate / 100));
 
   const calculateArea = (newWidth: string, newHeight: string) => {
     const w = parseFloat(newWidth);
@@ -289,7 +302,8 @@ const InvoiceBuilder = () => {
         dueDate: dueDate || invoiceDate,
         notes,
         createdBy: user?.id || 'unknown',
-        validUntil: documentType === 'quote' ? dueDate : undefined
+        validUntil: documentType === 'quote' ? dueDate : undefined,
+        isVatInclusive
       };
 
       if (editingInvoice && editingInvoice.id) {
@@ -557,13 +571,6 @@ const InvoiceBuilder = () => {
                   onChange={e => setPostalCode(e.target.value)}
                 />
               </div>
-              <input
-                type="text"
-                placeholder="Country"
-                className="w-full text-slate-900 bg-white border-2 border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-brand-500 outline-none transition-all"
-                value={country}
-                onChange={e => setCountry(e.target.value)}
-              />
             </div>
           </div>
           <div className="space-y-6">
@@ -740,7 +747,9 @@ const InvoiceBuilder = () => {
                 {selectedProductId && (
                   <div className="text-right px-2 animate-in fade-in duration-300">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Subtotal: {formatCurrency(currentLineTotal)}</span>
-                    <span className="text-xs font-black text-brand-600 block">Inc VAT: {formatCurrency(currentLineTotalIncTax)}</span>
+                    {!isVatInclusive && (
+                      <span className="text-xs font-black text-brand-600 block">Inc VAT: {formatCurrency(currentLineTotalIncTax)}</span>
+                    )}
                   </div>
                 )}
                 <button
@@ -934,19 +943,29 @@ const InvoiceBuilder = () => {
                 </div>
                 <div className="flex justify-between text-sm items-center pb-2">
                   <div className="flex flex-col">
-                    <span className="text-slate-400 font-bold uppercase tracking-widest text-xs">VAT Amount</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black text-brand-400">Rate:</span>
-                      <input
-                        type="number"
-                        value={taxRate}
-                        onChange={e => setTaxRate(parseFloat(e.target.value))}
-                        className="w-12 bg-slate-800 border border-slate-700 rounded px-1 py-0.5 text-xs text-white text-center font-bold focus:border-brand-500 outline-none"
-                      />
-                      <span className="text-[10px] font-black text-brand-400">%</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-slate-400 font-bold uppercase tracking-widest text-xs line-through decoration-slate-600 opacity-50">VAT Amount</span>
+                      <button
+                        onClick={() => setIsVatInclusive(!isVatInclusive)}
+                        className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest transition-all border-2 ${isVatInclusive ? 'bg-brand-500 border-brand-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'}`}
+                      >
+                        {isVatInclusive ? '✓ Include VAT' : 'Inc. VAT?'}
+                      </button>
                     </div>
+                    {!isVatInclusive && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-[10px] font-black text-brand-400">Rate:</span>
+                        <input
+                          type="number"
+                          value={taxRate}
+                          onChange={e => setTaxRate(parseFloat(e.target.value))}
+                          className="w-12 bg-slate-800 border border-slate-700 rounded px-1 py-0.5 text-xs text-white text-center font-bold focus:border-brand-500 outline-none"
+                        />
+                        <span className="text-[10px] font-black text-brand-400">%</span>
+                      </div>
+                    )}
                   </div>
-                  <span className="font-mono font-bold text-lg">{formatCurrency(taxAmount)}</span>
+                  <span className="font-mono font-bold text-lg">{isVatInclusive ? 'Included' : formatCurrency(taxAmount)}</span>
                 </div>
               </div>
 
@@ -954,7 +973,7 @@ const InvoiceBuilder = () => {
                 <div className="flex flex-col gap-2">
                   <span className="text-[10px] font-black text-brand-500 uppercase tracking-widest">Total Invoice Value</span>
                   <div className="flex justify-between items-end">
-                    <span className="text-2xl font-black tracking-tighter text-white">TOTAL DUE</span>
+                    <span className="text-2xl font-black tracking-tighter text-white">{isVatInclusive ? 'TOTAL (VAT INC)' : 'TOTAL DUE'}</span>
                     <span className="text-4xl font-black text-brand-500 font-mono leading-none">{formatCurrency(total)}</span>
                   </div>
                 </div>
