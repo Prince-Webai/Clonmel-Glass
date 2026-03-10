@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { formatDate } from '../utils';
 import { Invoice, PaymentStatus } from '../types';
-import { Search, Download, Eye, Trash2, Edit, CheckCircle2, Clock, AlertCircle, CreditCard, Mail, ArrowRightCircle, Euro, X, Check, Loader2 } from 'lucide-react';
+import { Search, Download, Eye, Trash2, Edit, CheckCircle2, Clock, AlertCircle, CreditCard, Mail, ArrowRightCircle, Euro, X, Check, Loader2, Lock } from 'lucide-react';
 import { downloadInvoicePDF, generatePreviewUrl, sendInvoiceViaWebhook } from '../services/pdfService';
 import { sendToXero } from '../services/integrationService';
 
@@ -369,11 +369,19 @@ const InvoiceList = () => {
                               </button>
                               {inv.xeroSyncStatus !== 'synced' && (
                                 <button
-                                  onClick={() => handleXeroTransfer(inv)}
-                                  className="p-3 text-blue-600 bg-blue-50 hover:bg-blue-500 hover:text-white rounded-xl transition-all"
-                                  title="Send to Xero"
+                                  onClick={() => inv.status === PaymentStatus.PAID && handleXeroTransfer(inv)}
+                                  disabled={inv.status !== PaymentStatus.PAID}
+                                  className={`p-3 rounded-xl transition-all ${inv.status === PaymentStatus.PAID
+                                    ? 'text-blue-600 bg-blue-50 hover:bg-blue-500 hover:text-white shadow-sm'
+                                    : 'text-slate-300 bg-slate-50 cursor-not-allowed opacity-60'
+                                    }`}
+                                  title={inv.status === PaymentStatus.PAID ? "Send to Xero" : "Unpaid: Lock - Fully pay to enabled Xero sync"}
                                 >
-                                  <ArrowRightCircle size={20} />
+                                  {inv.status === PaymentStatus.PAID ? (
+                                    <ArrowRightCircle size={20} />
+                                  ) : (
+                                    <Lock size={20} />
+                                  )}
                                 </button>
                               )}
                               <button
