@@ -139,9 +139,10 @@ const InvoiceBuilder = () => {
   }, [products, company]);
 
   // Derived state for the existing items
-  const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-  const taxAmount = isVatInclusive ? 0 : (subtotal * taxRate) / 100;
-  const total = subtotal + taxAmount;
+  const itemsTotal = items.reduce((sum, item) => sum + item.total, 0);
+  const total = isVatInclusive ? itemsTotal : itemsTotal + (itemsTotal * taxRate) / 100;
+  const subtotal = isVatInclusive ? total / (1 + taxRate / 100) : itemsTotal;
+  const taxAmount = total - subtotal;
 
   // Real-time calculation for the CURRENT selection
   const currentProduct = products.find(p => p.id === selectedProductId);
@@ -965,7 +966,7 @@ const InvoiceBuilder = () => {
                       </div>
                     )}
                   </div>
-                  <span className="font-mono font-bold text-lg">{isVatInclusive ? 'Included' : formatCurrency(taxAmount)}</span>
+                  <span className="font-mono font-bold text-lg">{formatCurrency(taxAmount)}</span>
                 </div>
               </div>
 
