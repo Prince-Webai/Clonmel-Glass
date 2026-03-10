@@ -349,9 +349,13 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
   const leftColX = margin;
   const rightColX = pageWidth - margin - 80;
 
+  // Local recalculation for display to ensure breakdown is always shown for inclusive
+  const displaySubtotal = invoice.isVatInclusive ? (invoice.total / (1 + (invoice.taxRate || 23) / 100)) : (invoice.subtotal || 0);
+  const displayTaxAmount = invoice.total - displaySubtotal;
+
   // VAT Analysis Table
   const vatRows = [
-    [`23.00%${invoice.isVatInclusive ? ' (Inc)' : ''}`, `€${formatCurrency(invoice.subtotal)}`, `€${formatCurrency(invoice.taxAmount)}`, `€${formatCurrency(invoice.total)}`]
+    [`23.00%${invoice.isVatInclusive ? ' (Inc)' : ''}`, `€${formatCurrency(displaySubtotal)}`, `€${formatCurrency(displayTaxAmount)}`, `€${formatCurrency(invoice.total)}`]
   ];
 
   doc.setFont("helvetica", "bold");
@@ -407,9 +411,9 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
   doc.setLineWidth(0.3);
   doc.line(labX, totalsY, valX, totalsY);
 
-  drawTotalLine("Total Net", `€${formatCurrency(invoice.subtotal)}`);
+  drawTotalLine("Total Net", `€${formatCurrency(displaySubtotal)}`);
   drawTotalLine("Total Discount", `€${formatCurrency(0)}`);
-  drawTotalLine("Total VAT (23%)", `€${formatCurrency(invoice.taxAmount)}`);
+  drawTotalLine("Total VAT (23%)", `€${formatCurrency(displayTaxAmount)}`);
 
   // Total Gross
   totalsY += 4;
