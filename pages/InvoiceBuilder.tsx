@@ -108,16 +108,16 @@ const InvoiceBuilder = () => {
   const [showCalculator, setShowCalculator] = useState(false);
   const [manualPrice, setManualPrice] = useState<string>(''); // For manual override before adding
 
-  // Default VAT Inclusive for Mirrorzone
+  // Sync VAT Inclusive based on company selection
   useEffect(() => {
-    if (!editingInvoice) {
-      if (company === 'mirrorzone') {
-        setIsVatInclusive(true);
-      } else {
-        setIsVatInclusive(false);
-      }
+    // For Mirrorzone, we want inclusive by default
+    // For Clonmel, we want exclusive by default
+    if (company === 'mirrorzone') {
+      setIsVatInclusive(true);
+    } else {
+      setIsVatInclusive(false);
     }
-  }, [company, editingInvoice]);
+  }, [company]);
 
   // Filter and group products based on selected company
   const groupedProducts = useMemo(() => {
@@ -945,13 +945,9 @@ const InvoiceBuilder = () => {
                 <div className="flex justify-between text-sm items-center pb-2">
                   <div className="flex flex-col">
                     <div className="flex items-center gap-3">
-                      <span className="text-slate-400 font-bold uppercase tracking-widest text-xs line-through decoration-slate-600 opacity-50">VAT Amount</span>
-                      <button
-                        onClick={() => setIsVatInclusive(!isVatInclusive)}
-                        className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest transition-all border-2 ${isVatInclusive ? 'bg-brand-500 border-brand-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'}`}
-                      >
-                        {isVatInclusive ? '✓ Include VAT' : 'Inc. VAT?'}
-                      </button>
+                      <span className="text-slate-400 font-bold uppercase tracking-widest text-xs">
+                        {isVatInclusive ? 'VAT Amount (Inc.)' : 'VAT Amount'}
+                      </span>
                     </div>
                     {!isVatInclusive && (
                       <div className="flex items-center gap-2 mt-2">
