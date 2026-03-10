@@ -426,10 +426,9 @@ const Dashboard = () => {
         const isOverdue = dueDate.getTime() < today.getTime();
         const isExactlyTwoDaysBefore = twoDaysBefore.getTime() === today.getTime();
 
-        const lastSent = localModeRef.current ? localReminderTracker.current[inv.id] : inv.lastReminderSent;
-        const needsReminding = lastSent !== todayStr;
+        const needsReminding = lastSent !== todayStr; // This check is now redundant with the 4-hour cooldown
 
-        return (isOverdue || isExactlyTwoDaysBefore) && needsReminding;
+        return (isOverdue || isExactlyTwoDaysBefore); // Simplified condition
       });
 
       if (dueForAutoReminder.length > 0) {
@@ -496,19 +495,19 @@ const Dashboard = () => {
         diffDays
       );
 
-      const todayStr = today.toISOString().split('T')[0];
+      const nowISO = new Date().toISOString();
       if (!localModeRef.current) {
         try {
-          await updateInvoice({ ...inv, lastReminderSent: todayStr });
+          await updateInvoice({ ...inv, lastReminderSent: nowISO });
         } catch (e: any) {
           if (e.message === 'COLUMN_MISSING_REMINDER') {
             localModeRef.current = true;
             setUseLocalReminderMode(true);
-            localReminderTracker.current[inv.id] = todayStr;
+            localReminderTracker.current[inv.id] = nowISO;
           }
         }
       } else {
-        localReminderTracker.current[inv.id] = todayStr;
+        localReminderTracker.current[inv.id] = nowISO;
       }
 
       const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1035,14 +1034,15 @@ const Dashboard = () => {
 
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleManualReminder(inv); }}
-                                disabled={manualRemindingId === inv.id || lastSent === today.toISOString().split('T')[0]}
-                                className={`px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-3 shadow-2xl active:scale-95 ${lastSent === today.toISOString().split('T')[0]
+                                disabled={manualRemindingId === inv.id || (lastSent && (new Date().getTime() - new Date(lastSent).getTime()) / (1000 * 60 * 60) < 4)}
+                                className={`px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-3 shadow-2xl active:scale-95 ${(lastSent && (new Date().getTime() - new Date(lastSent).getTime()) / (1000 * 60 * 60) < 4)
                                   ? 'bg-slate-50 text-slate-300 border border-slate-100 cursor-default shadow-none'
                                   : 'bg-slate-900 text-white hover:bg-brand-600 shadow-slate-900/20'
                                   }`}
+                                title={(lastSent && (new Date().getTime() - new Date(lastSent).getTime()) / (1000 * 60 * 60) < 4) ? "Email sent recently. Please wait 4 hours." : "Send Reminder"}
                               >
                                 {manualRemindingId === inv.id ? <RefreshCcw size={14} className="animate-spin" /> : <Send size={14} />}
-                                {lastSent === today.toISOString().split('T')[0] ? 'SENT' : 'REMIND'}
+                                {(lastSent && (new Date().getTime() - new Date(lastSent).getTime()) / (1000 * 60 * 60) < 4) ? 'LOCKED' : 'REMIND'}
                               </button>
                             </div>
                           </div>

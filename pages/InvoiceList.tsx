@@ -362,8 +362,12 @@ const InvoiceList = () => {
                               </button>
                               <button
                                 onClick={() => handleSendEmail(inv)}
-                                className="p-3 text-violet-600 bg-violet-50 hover:bg-violet-500 hover:text-white rounded-xl transition-all"
-                                title="Send via Email (n8n)"
+                                disabled={(inv.lastReminderSent && (new Date().getTime() - new Date(inv.lastReminderSent).getTime()) / (1000 * 60 * 60) < 4)}
+                                className={`p-3 rounded-xl transition-all ${(inv.lastReminderSent && (new Date().getTime() - new Date(inv.lastReminderSent).getTime()) / (1000 * 60 * 60) < 4)
+                                  ? 'text-slate-300 bg-slate-50 cursor-default'
+                                  : 'text-brand-600 bg-brand-50 hover:bg-brand-500 hover:text-white'
+                                  }`}
+                                title={(inv.lastReminderSent && (new Date().getTime() - new Date(inv.lastReminderSent).getTime()) / (1000 * 60 * 60) < 4) ? "Email sent recently. Please wait 4 hours." : "Send Email"}
                               >
                                 <Mail size={20} />
                               </button>
@@ -375,13 +379,9 @@ const InvoiceList = () => {
                                     ? 'text-blue-600 bg-blue-50 hover:bg-blue-500 hover:text-white shadow-sm'
                                     : 'text-slate-300 bg-slate-50 cursor-not-allowed opacity-60'
                                     }`}
-                                  title={inv.status === PaymentStatus.PAID ? "Send to Xero" : "Unpaid: Lock - Fully pay to enabled Xero sync"}
+                                  title={inv.status === PaymentStatus.PAID ? "Send to Xero" : "Unpaid: Send to Xero (Locked - Fully pay to enable)"}
                                 >
-                                  {inv.status === PaymentStatus.PAID ? (
-                                    <ArrowRightCircle size={20} />
-                                  ) : (
-                                    <Lock size={20} />
-                                  )}
+                                  <ArrowRightCircle size={20} />
                                 </button>
                               )}
                               <button
