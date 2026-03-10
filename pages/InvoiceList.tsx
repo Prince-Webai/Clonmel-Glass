@@ -99,12 +99,7 @@ const InvoiceList = () => {
 
     updateInvoice(updatedInvoice);
 
-    // Auto Xero Sync on Full Payment (if not already synced)
-    if (newStatus === PaymentStatus.PAID && inv.xeroSyncStatus !== 'synced') {
-      setTimeout(() => {
-        handleXeroTransfer(updatedInvoice, true); // true for auto-sync mode
-      }, 500);
-    }
+    // Auto Xero Sync removed as per user request (manual only)
 
     setEditingPaymentId(null);
     setPaymentAmount('');
@@ -153,48 +148,43 @@ const InvoiceList = () => {
     }
   };
 
-  const handleXeroTransfer = async (inv: Invoice, isAuto = false) => {
+  const handleXeroTransfer = async (inv: Invoice) => {
     if (!settings.xeroWebhookUrl) {
-      if (!isAuto) alert("Please configure Xero Webhook URL in Settings -> Integrations first.");
+      alert("Please configure Xero Webhook URL in Settings -> Integrations first.");
       return;
     }
 
     if (inv.xeroSyncStatus === 'synced') {
-      if (!isAuto) alert("This invoice has already been synced with Xero.");
+      alert("This invoice has already been synced with Xero.");
       return;
     }
 
-    const confirmMsg = isAuto
-      ? `Invoice ${inv.invoiceNumber} is fully paid. Auto-transfer to Xero?`
-      : `Transfer ${inv.invoiceNumber} to Xero?`;
 
-    if (window.confirm(confirmMsg)) {
-      try {
-        const fullCustomer = customers.find(c => c.id === inv.customerId);
-        const success = await sendToXero(inv, fullCustomer, settings, user);
+    try {
+      const fullCustomer = customers.find(c => c.id === inv.customerId);
+      const success = await sendToXero(inv, fullCustomer, settings, user);
 
-        if (success) {
-          await updateInvoice({
-            ...inv,
-            xeroSyncStatus: 'synced',
-            xeroSyncDate: new Date().toISOString()
-          });
-          if (!isAuto) alert("Transferred to Xero successfully!");
-        } else {
-          await updateInvoice({
-            ...inv,
-            xeroSyncStatus: 'failed'
-          });
-          alert("Failed to transfer to Xero. Please check logs/webhook.");
-        }
-      } catch (e) {
-        console.error(e);
+      if (success) {
+        await updateInvoice({
+          ...inv,
+          xeroSyncStatus: 'synced',
+          xeroSyncDate: new Date().toISOString()
+        });
+        alert("Transferred to Xero successfully!");
+      } else {
         await updateInvoice({
           ...inv,
           xeroSyncStatus: 'failed'
         });
-        alert("Xero transfer failed.");
+        alert("Failed to transfer to Xero. Please check logs/webhook.");
       }
+    } catch (e) {
+      console.error(e);
+      await updateInvoice({
+        ...inv,
+        xeroSyncStatus: 'failed'
+      });
+      alert("Xero transfer failed.");
     }
   };
 
@@ -377,13 +367,15 @@ const InvoiceList = () => {
                               >
                                 <Mail size={20} />
                               </button>
-                              <button
-                                onClick={() => handleXeroTransfer(inv)}
-                                className="p-3 text-blue-600 bg-blue-50 hover:bg-blue-500 hover:text-white rounded-xl transition-all"
-                                title="Send to Xero"
-                              >
-                                <ArrowRightCircle size={20} />
-                              </button>
+                              {inv.xeroSyncStatus !== 'synced' && (
+                                <button
+                                  onClick={() => handleXeroTransfer(inv)}
+                                  className="p-3 text-blue-600 bg-blue-50 hover:bg-blue-500 hover:text-white rounded-xl transition-all"
+                                  title="Send to Xero"
+                                >
+                                  <ArrowRightCircle size={20} />
+                                </button>
+                              )}
                               <button
                                 onClick={() => downloadInvoicePDF(inv, settings, undefined, user?.name || 'Admin')}
                                 className="p-3 text-slate-600 bg-slate-50 hover:bg-slate-500 hover:text-white rounded-xl transition-all"
