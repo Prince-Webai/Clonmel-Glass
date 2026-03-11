@@ -101,7 +101,6 @@ const Quotes = () => {
                                 const randomVal = Math.floor(1000 + Math.random() * 9000);
                                 setEditingInvoice({
                                     ...quote,
-                                    id: '', // CLEAR ID to force a NEW record instead of overwriting the quote
                                     documentType: 'invoice' as const,
                                     invoiceNumber: `INV-${new Date().getFullYear()}-${randomVal}`,
                                     status: PaymentStatus.UNPAID
