@@ -19,6 +19,7 @@ const formatCurrency = (amount: number) => {
 const InvoiceBuilder = () => {
   const { products, addInvoice, updateInvoice, deleteInvoice, user, setView, customers, addCustomer, editingInvoice, setEditingInvoice, settings } = useApp();
   const { showToast } = useToast();
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
   const [documentType, setDocumentType] = useState<'invoice' | 'quote'>('invoice');
   const [invoiceNumber, setInvoiceNumber] = useState('');
@@ -1019,17 +1020,7 @@ const InvoiceBuilder = () => {
       <div className="flex flex-col sm:flex-row justify-end gap-5 pb-20">
         {editingInvoice && (
           <button
-            onClick={async () => {
-              if (window.confirm(`Delete this ${documentType}? This cannot be undone.`)) {
-                try {
-                  await deleteInvoice(editingInvoice.id);
-                  showToast(`${documentType === 'quote' ? 'Quote' : 'Invoice'} deleted successfully.`, "success");
-                  setView(documentType === 'quote' ? 'QUOTES' : 'INVOICES');
-                } catch (e) {
-                  showToast(`Failed to delete ${documentType}. Please try again.`, "error");
-                }
-              }
-            }}
+            onClick={() => setConfirmingDeleteId(editingInvoice.id)}
             className="px-10 py-5 rounded-2xl border-2 border-rose-200 text-rose-500 font-black hover:bg-rose-50 hover:border-rose-300 transition-all text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3"
           >
             <Trash2 size={18} />
@@ -1060,6 +1051,41 @@ const InvoiceBuilder = () => {
           )}
         </button>
       </div>
+
+      {confirmingDeleteId && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200">
+                <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 mb-6 border border-rose-100">
+                    <Trash2 size={32} />
+                </div>
+                <h3 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Delete {documentType === 'quote' ? 'Quote' : 'Invoice'}</h3>
+                <p className="text-sm font-semibold text-slate-500 mb-8">Are you sure you want to permanently delete this {documentType}? This action cannot be undone.</p>
+                <div className="flex gap-3">
+                    <button 
+                        onClick={() => setConfirmingDeleteId(null)} 
+                        className="flex-1 py-3.5 bg-slate-100 font-black text-slate-600 text-sm tracking-wide uppercase rounded-2xl hover:bg-slate-200 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={async () => {
+                            try { 
+                                await deleteInvoice(confirmingDeleteId); 
+                                setConfirmingDeleteId(null);
+                                showToast(`${documentType === 'quote' ? 'Quote' : 'Invoice'} deleted successfully.`, "success");
+                                setView(documentType === 'quote' ? 'QUOTES' : 'INVOICES');
+                            } catch (e) { 
+                                showToast(`Failed to delete ${documentType}. Please try again.`, "error"); 
+                            }
+                        }} 
+                        className="flex-1 py-3.5 bg-rose-600 font-black text-white text-sm tracking-wide uppercase rounded-2xl hover:bg-rose-700 shadow-xl shadow-rose-500/20 transition-all active:scale-95"
+                    >
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
     </div >
   );
 };

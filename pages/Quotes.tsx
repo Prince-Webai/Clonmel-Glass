@@ -7,6 +7,7 @@ import { generatePreviewUrl, downloadInvoicePDF } from '../services/pdfService';
 const Quotes = () => {
     const { user, invoices, setView, setEditingInvoice, settings, deleteInvoice } = useApp();
     const [searchTerm, setSearchTerm] = useState('');
+    const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
     const filteredQuotes = invoices.filter(inv =>
         (inv.documentType === 'quote' || inv.invoiceNumber.startsWith('QT-')) &&
@@ -119,12 +120,7 @@ const Quotes = () => {
                         }} />
                         <Item icon={<Download size={15} />} label="Download PDF" onClick={() => downloadInvoicePDF(quote, settings, undefined, user?.name || 'Admin')} />
                         <div className="border-t border-slate-100 mt-1">
-                            <Item icon={<Trash2 size={15} />} label="Delete Quote" onClick={async () => {
-                                if (window.confirm('Delete this quote?')) {
-                                    try { await deleteInvoice(quote.id); }
-                                    catch (e) { alert("Error deleting quote. Please try again."); }
-                                }
-                            }} danger />
+                            <Item icon={<Trash2 size={15} />} label="Delete Quote" onClick={() => setConfirmingDeleteId(quote.id)} danger />
                         </div>
                     </div>
                 )}
@@ -180,12 +176,7 @@ const Quotes = () => {
                     <Download size={18} />
                 </button>
                 <button
-                    onClick={async () => { 
-                        if (window.confirm('Delete this quote?')) {
-                            try { await deleteInvoice(quote.id); }
-                            catch (e) { alert("Error deleting quote. Please try again."); }
-                        }
-                    }}
+                    onClick={() => setConfirmingDeleteId(quote.id)}
                     title="Delete Quote"
                     className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
                 >
@@ -297,6 +288,39 @@ const Quotes = () => {
                     </tbody>
                 </table>
             </div>
+
+            {confirmingDeleteId && (
+                <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 mb-6 border border-rose-100">
+                            <Trash2 size={32} />
+                        </div>
+                        <h3 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Delete Quote</h3>
+                        <p className="text-sm font-semibold text-slate-500 mb-8">Are you sure you want to permanently delete this quote? This action cannot be undone.</p>
+                        <div className="flex gap-3">
+                            <button 
+                                onClick={() => setConfirmingDeleteId(null)} 
+                                className="flex-1 py-3.5 bg-slate-100 font-black text-slate-600 text-sm tracking-wide uppercase rounded-2xl hover:bg-slate-200 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={async () => {
+                                    try { 
+                                        await deleteInvoice(confirmingDeleteId); 
+                                        setConfirmingDeleteId(null); 
+                                    } catch (e) { 
+                                        alert("Error deleting quote. Please try again."); 
+                                    }
+                                }} 
+                                className="flex-1 py-3.5 bg-rose-600 font-black text-white text-sm tracking-wide uppercase rounded-2xl hover:bg-rose-700 shadow-xl shadow-rose-500/20 transition-all active:scale-95"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

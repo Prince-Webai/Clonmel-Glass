@@ -201,6 +201,7 @@ const InvoiceList = () => {
   const [filter, setFilter] = useState('');
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<string>('');
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
   const filteredInvoices = invoices.filter(inv =>
     (inv.documentType === 'invoice' || !inv.documentType) &&
@@ -234,10 +235,7 @@ const InvoiceList = () => {
   };
 
   const handleDelete = async (inv: Invoice) => {
-    if (window.confirm(`Delete invoice ${inv.invoiceNumber}?`)) {
-      try { await deleteInvoice(inv.id); }
-      catch (error) { alert("Failed to delete invoice. Please try again."); }
-    }
+    setConfirmingDeleteId(inv.id);
   };
 
   const handleSendEmail = async (inv: Invoice) => {
@@ -441,6 +439,39 @@ const InvoiceList = () => {
           </tbody>
         </table>
       </div>
+
+      {confirmingDeleteId && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200">
+                <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 mb-6 border border-rose-100">
+                    <Trash2 size={32} />
+                </div>
+                <h3 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Delete Invoice</h3>
+                <p className="text-sm font-semibold text-slate-500 mb-8">Are you sure you want to permanently delete this invoice? This action cannot be undone.</p>
+                <div className="flex gap-3">
+                    <button 
+                        onClick={() => setConfirmingDeleteId(null)} 
+                        className="flex-1 py-3.5 bg-slate-100 font-black text-slate-600 text-sm tracking-wide uppercase rounded-2xl hover:bg-slate-200 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={async () => {
+                            try { 
+                                await deleteInvoice(confirmingDeleteId); 
+                                setConfirmingDeleteId(null); 
+                            } catch (e) { 
+                                alert("Error deleting invoice. Please try again."); 
+                            }
+                        }} 
+                        className="flex-1 py-3.5 bg-rose-600 font-black text-white text-sm tracking-wide uppercase rounded-2xl hover:bg-rose-700 shadow-xl shadow-rose-500/20 transition-all active:scale-95"
+                    >
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 };
