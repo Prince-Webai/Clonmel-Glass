@@ -234,7 +234,12 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
       // After initialization, if user was restored from session, navigate to dashboard
       const storedUser = localStorage.getItem('currentUser');
       if (storedUser) {
-        setView(databaseError ? 'PRODUCTS' : 'DASHBOARD');
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setView(databaseError ? 'PRODUCTS' : (parsedUser.role === UserRole.ADMIN ? 'DASHBOARD' : 'INVOICES'));
+        } catch {
+          setView(databaseError ? 'PRODUCTS' : 'DASHBOARD');
+        }
       }
     }
   };
@@ -275,7 +280,7 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
     const user = data as User;
     setUser(user);
     localStorage.setItem('currentUser', JSON.stringify(user));
-    setView('DASHBOARD');
+    setView(user.role === UserRole.ADMIN ? 'DASHBOARD' : 'INVOICES');
   };
 
   const logout = async () => {
