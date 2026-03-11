@@ -166,7 +166,7 @@ const ActionMenu = ({
           <div className="absolute right-0 top-full mt-2 bg-white rounded-xl shadow-xl border border-slate-100 p-2 z-[9990] min-w-48 animate-in slide-in-from-top-2">
             <div className="flex flex-col gap-2">
                 <div className="flex gap-1 justify-between">
-                    <button onClick={() => setPaymentAmount?.((inv.balanceDue || 0).toString())} className="flex-1 px-2 py-1.5 text-[10px] font-black bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100">Full</button>
+                    <button onClick={() => setPaymentAmount?.((inv.balanceDue || 0).toFixed(2))} className="flex-1 px-2 py-1.5 text-[10px] font-black bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100">Full</button>
                     <button onClick={() => setPaymentAmount?.(((inv.balanceDue || 0) / 2).toFixed(2))} className="flex-1 px-2 py-1.5 text-[10px] font-black bg-slate-50 text-slate-600 rounded-lg hover:bg-slate-100">50%</button>
                 </div>
                 <div className="relative">
@@ -174,6 +174,7 @@ const ActionMenu = ({
                 <input
                     autoFocus
                     type="number"
+                    step="0.01"
                     className="w-full pl-6 pr-2 py-2 text-xs font-black border-2 border-brand-200 rounded-lg focus:border-brand-500 outline-none"
                     placeholder="Amount"
                     value={paymentAmount || ''}
@@ -372,13 +373,14 @@ const InvoiceList = () => {
                         <div className="hidden lg:flex items-center justify-end gap-1.5 px-2">
                            {isEditingPayment ? (
                                 <div className="flex items-center justify-end gap-1 mr-2 animate-in slide-in-from-right-4 duration-200">
-                                  <button onClick={() => setPaymentAmount((inv.balanceDue || 0).toString())} className="px-2 py-1 text-[9px] font-black bg-brand-50 text-brand-600 rounded hover:bg-brand-100">Full</button>
+                                  <button onClick={() => setPaymentAmount((inv.balanceDue || 0).toFixed(2))} className="px-2 py-1 text-[9px] font-black bg-brand-50 text-brand-600 rounded hover:bg-brand-100">Full</button>
                                   <button onClick={() => setPaymentAmount(((inv.balanceDue || 0) / 2).toFixed(2))} className="px-2 py-1 text-[9px] font-black bg-slate-50 text-slate-600 rounded hover:bg-slate-100">50%</button>
                                   <div className="relative">
                                     <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs text-center w-5">€</span>
                                     <input
                                       autoFocus
                                       type="number"
+                                      step="0.01"
                                       className="w-24 pl-6 pr-2 py-1.5 text-xs font-black text-slate-800 border-2 border-brand-200 rounded-lg focus:border-brand-500 outline-none transition-all shadow-inner"
                                       placeholder="Amount"
                                       value={paymentAmount}
