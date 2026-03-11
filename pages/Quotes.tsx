@@ -97,9 +97,19 @@ const Quotes = () => {
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">{quote.invoiceNumber}</p>
                         </div>
                         <Item icon={<FileOutput size={15} />} label="Convert to Invoice" onClick={() => {
-                            const newNum = `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-                            setEditingInvoice({ ...quote, documentType: 'invoice' as const, invoiceNumber: newNum, status: PaymentStatus.UNPAID });
-                            setView('CREATE_INVOICE');
+                            const convertToInvoice = () => {
+                                const randomVal = Math.floor(1000 + Math.random() * 9000);
+                                setEditingInvoice({
+                                    ...quote,
+                                    id: '', // CLEAR ID to force a NEW record instead of overwriting the quote
+                                    documentType: 'invoice' as const,
+                                    invoiceNumber: `INV-${new Date().getFullYear()}-${randomVal}`,
+                                    status: PaymentStatus.UNPAID
+                                });
+                                setView('CREATE_INVOICE');
+                                setOpen(false);
+                            };
+                            convertToInvoice();
                         }} />
                         <Item icon={<Edit size={15} />} label="Edit Quote" onClick={() => { setEditingInvoice(quote); setView('CREATE_INVOICE'); }} />
                         <Item icon={<Eye size={15} />} label="Preview PDF" onClick={async () => {
