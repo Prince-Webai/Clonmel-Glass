@@ -47,7 +47,22 @@ const StatusBadge = ({ status, overdue }: { status: PaymentStatus, overdue?: boo
 };
 
 // ⋯ Dropdown menu — uses position:fixed to escape overflow-hidden containers
-const ActionMenu = ({ inv, onEdit, onPreview, onEmail, onXero, onDownload, onDelete, onPayment, emailCooledDown, xeroLocked }: {
+const ActionMenu = ({ 
+  inv, 
+  onEdit, 
+  onPreview, 
+  onEmail, 
+  onXero, 
+  onDownload, 
+  onDelete, 
+  onPayment, 
+  emailCooledDown, 
+  xeroLocked,
+  isEditingPayment,
+  paymentAmount,
+  setPaymentAmount,
+  setEditingPaymentId
+}: {
   inv: Invoice;
   onEdit: () => void;
   onPreview: () => void;
@@ -58,6 +73,10 @@ const ActionMenu = ({ inv, onEdit, onPreview, onEmail, onXero, onDownload, onDel
   onPayment: () => void;
   emailCooledDown: boolean;
   xeroLocked: boolean;
+  isEditingPayment?: boolean;
+  paymentAmount?: string;
+  setPaymentAmount?: (amount: string) => void;
+  setEditingPaymentId?: (id: string | null) => void;
 }) => {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, right: 0 });
@@ -140,6 +159,37 @@ const ActionMenu = ({ inv, onEdit, onPreview, onEmail, onXero, onDownload, onDel
             <Item icon={<Trash2 size={15} />} label="Delete Invoice" onClick={onDelete} danger />
           </div>
         </div>
+      )}
+      
+      {/* Mobile inline payment drop-down */}
+      {isEditingPayment && !open && (
+          <div className="absolute right-0 top-full mt-2 bg-white rounded-xl shadow-xl border border-slate-100 p-2 z-[9990] min-w-48 animate-in slide-in-from-top-2">
+            <div className="flex flex-col gap-2">
+                <div className="flex gap-1 justify-between">
+                    <button onClick={() => setPaymentAmount?.((inv.balanceDue || 0).toString())} className="flex-1 px-2 py-1.5 text-[10px] font-black bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100">Full</button>
+                    <button onClick={() => setPaymentAmount?.(((inv.balanceDue || 0) / 2).toFixed(2))} className="flex-1 px-2 py-1.5 text-[10px] font-black bg-slate-50 text-slate-600 rounded-lg hover:bg-slate-100">50%</button>
+                </div>
+                <div className="relative">
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">€</span>
+                <input
+                    autoFocus
+                    type="number"
+                    className="w-full pl-6 pr-2 py-2 text-xs font-black border-2 border-brand-200 rounded-lg focus:border-brand-500 outline-none"
+                    placeholder="Amount"
+                    value={paymentAmount || ''}
+                    onChange={e => setPaymentAmount?.(e.target.value)}
+                    onKeyDown={e => {
+                    if (e.key === 'Enter') { onPayment(); setOpen(false); }
+                    if (e.key === 'Escape') { setEditingPaymentId?.(null); setPaymentAmount?.(''); }
+                    }}
+                />
+                </div>
+                <div className="flex gap-1">
+                    <button onClick={() => { onPayment(); setOpen(false); }} className="flex-1 py-2 flex justify-center bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"><Check size={14} strokeWidth={3} /></button>
+                    <button onClick={() => { setEditingPaymentId?.(null); setPaymentAmount?.(''); }} className="flex-1 py-2 flex justify-center bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200"><X size={14} strokeWidth={3} /></button>
+                </div>
+            </div>
+          </div>
       )}
     </div>
   );
@@ -294,30 +344,6 @@ const InvoiceList = () => {
                     </td>
                     <td className="py-4 px-5 text-center">
                       <StatusBadge status={inv.status} overdue={isOverdue} />
-                      {/* Inline payment row */}
-                      {isEditingPayment && (
-                        <div className="mt-2 flex items-center justify-center gap-1">
-                          <button onClick={() => setPaymentAmount((inv.balanceDue || 0).toString())} className="px-2 py-1 text-[9px] font-black bg-brand-50 text-brand-600 rounded hover:bg-brand-100">Full</button>
-                          <button onClick={() => setPaymentAmount(((inv.balanceDue || 0) / 2).toFixed(2))} className="px-2 py-1 text-[9px] font-black bg-slate-50 text-slate-600 rounded hover:bg-slate-100">50%</button>
-                          <div className="relative">
-                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">€</span>
-                            <input
-                              autoFocus
-                              type="number"
-                              className="w-20 pl-5 pr-1 py-1 text-xs font-bold border border-slate-200 rounded focus:ring-2 focus:ring-brand-500 outline-none"
-                              placeholder="Amount"
-                              value={paymentAmount}
-                              onChange={e => setPaymentAmount(e.target.value)}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter') handlePayment(inv);
-                                if (e.key === 'Escape') { setEditingPaymentId(null); setPaymentAmount(''); }
-                              }}
-                            />
-                          </div>
-                          <button onClick={() => handlePayment(inv)} className="p-1 bg-emerald-500 text-white rounded hover:bg-emerald-600"><Check size={12} strokeWidth={3} /></button>
-                          <button onClick={() => { setEditingPaymentId(null); setPaymentAmount(''); }} className="p-1 bg-slate-100 text-slate-500 rounded hover:bg-slate-200"><X size={12} strokeWidth={3} /></button>
-                        </div>
-                      )}
                     </td>
                     <td className="py-4 px-6 relative">
                       <div className="flex justify-end items-center gap-2">
@@ -336,13 +362,41 @@ const InvoiceList = () => {
                           onPayment={() => { setEditingPaymentId(inv.id); setPaymentAmount((inv.balanceDue || 0).toString()); }}
                           emailCooledDown={emailCooledDown}
                           xeroLocked={xeroLocked}
+                          isEditingPayment={isEditingPayment}
+                          paymentAmount={paymentAmount}
+                          setPaymentAmount={setPaymentAmount}
+                          setEditingPaymentId={setEditingPaymentId}
                         />
 
                         {/* Explicit Action Icons for Desktop */}
                         <div className="hidden lg:flex items-center justify-end gap-1.5 px-2">
-                            <button onClick={() => { setEditingPaymentId(inv.id); setPaymentAmount((inv.balanceDue || 0).toString()); }} title="Record Payment" className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
-                                <CreditCard size={18} />
-                            </button>
+                           {isEditingPayment ? (
+                                <div className="flex items-center justify-end gap-1 mr-2 animate-in slide-in-from-right-4 duration-200">
+                                  <button onClick={() => setPaymentAmount((inv.balanceDue || 0).toString())} className="px-2 py-1 text-[9px] font-black bg-brand-50 text-brand-600 rounded hover:bg-brand-100">Full</button>
+                                  <button onClick={() => setPaymentAmount(((inv.balanceDue || 0) / 2).toFixed(2))} className="px-2 py-1 text-[9px] font-black bg-slate-50 text-slate-600 rounded hover:bg-slate-100">50%</button>
+                                  <div className="relative">
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs text-center w-5">€</span>
+                                    <input
+                                      autoFocus
+                                      type="number"
+                                      className="w-24 pl-6 pr-2 py-1.5 text-xs font-black text-slate-800 border-2 border-brand-200 rounded-lg focus:border-brand-500 outline-none transition-all shadow-inner"
+                                      placeholder="Amount"
+                                      value={paymentAmount}
+                                      onChange={e => setPaymentAmount(e.target.value)}
+                                      onKeyDown={e => {
+                                        if (e.key === 'Enter') handlePayment(inv);
+                                        if (e.key === 'Escape') { setEditingPaymentId(null); setPaymentAmount(''); }
+                                      }}
+                                    />
+                                  </div>
+                                  <button onClick={() => handlePayment(inv)} className="p-1.5 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition-colors shadow-sm"><Check size={14} strokeWidth={3} /></button>
+                                  <button onClick={() => { setEditingPaymentId(null); setPaymentAmount(''); }} className="p-1.5 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors"><X size={14} strokeWidth={3} /></button>
+                                </div>
+                            ) : (
+                                <button onClick={() => { setEditingPaymentId(inv.id); setPaymentAmount((inv.balanceDue || 0).toString()); }} title="Record Payment" className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
+                                    <CreditCard size={18} />
+                                </button>
+                            )}
                             <button onClick={() => { setEditingInvoice(inv); setView('CREATE_INVOICE'); }} title="Edit Invoice" className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                                 <Edit size={18} />
                             </button>
