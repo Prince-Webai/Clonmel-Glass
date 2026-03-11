@@ -39,35 +39,38 @@ const Quotes = () => {
         );
     };
 
-    // ⋯ Dropdown per quote row
+    // ⋯ Dropdown using position:fixed to escape overflow-hidden containers
     const QuoteActionMenu = ({ quote }: { quote: typeof filteredQuotes[0] }) => {
         const [open, setOpen] = useState(false);
-        const ref = useRef<HTMLDivElement>(null);
+        const [pos, setPos] = useState({ top: 0, right: 0 });
+        const btnRef = useRef<HTMLButtonElement>(null);
 
         useEffect(() => {
-            const handler = (e: MouseEvent) => {
-                if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+            const close = (e: MouseEvent | TouchEvent) => {
+                if (btnRef.current && !btnRef.current.closest('[data-menu]')?.contains(e.target as Node)) {
+                    setOpen(false);
+                }
             };
-            document.addEventListener('mousedown', handler);
-            return () => document.removeEventListener('mousedown', handler);
+            document.addEventListener('mousedown', close);
+            document.addEventListener('touchstart', close);
+            return () => {
+                document.removeEventListener('mousedown', close);
+                document.removeEventListener('touchstart', close);
+            };
         }, []);
 
-        const convertToInvoice = () => {
-            const randomVal = Math.floor(1000 + Math.random() * 9000);
-            setEditingInvoice({
-                ...quote,
-                documentType: 'invoice' as const,
-                invoiceNumber: `INV-${new Date().getFullYear()}-${randomVal}`,
-                status: PaymentStatus.UNPAID
-            });
-            setView('CREATE_INVOICE');
-            setOpen(false);
+        const handleOpen = () => {
+            if (btnRef.current) {
+                const rect = btnRef.current.getBoundingClientRect();
+                setPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+            }
+            setOpen(v => !v);
         };
 
         const Item = ({ icon, label, onClick, danger }: { icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean }) => (
             <button
                 onClick={() => { onClick(); setOpen(false); }}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold transition-colors
+                className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold transition-colors text-left
                     ${danger ? 'text-rose-600 hover:bg-rose-50' : 'text-slate-700 hover:bg-slate-50'}`}
             >
                 {icon}{label}
@@ -75,20 +78,29 @@ const Quotes = () => {
         );
 
         return (
-            <div ref={ref} className="relative flex justify-center">
+            <div data-menu="true" className="relative flex justify-center">
                 <button
-                    onClick={() => setOpen(v => !v)}
+                    ref={btnRef}
+                    onClick={handleOpen}
                     className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
                     title="Actions"
                 >
                     <MoreVertical size={20} />
                 </button>
+
                 {open && (
-                    <div className="absolute right-0 top-10 z-50 bg-white rounded-2xl shadow-xl border border-slate-100 py-1 w-52 animate-in fade-in zoom-in-95 duration-150">
-                        <div className="px-4 py-2 border-b border-slate-50">
+                    <div
+                        style={{ position: 'fixed', top: pos.top, right: pos.right, zIndex: 9999 }}
+                        className="bg-white rounded-2xl shadow-2xl border border-slate-100 py-1 w-52"
+                    >
+                        <div className="px-4 py-2 border-b border-slate-100">
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">{quote.invoiceNumber}</p>
                         </div>
-                        <Item icon={<FileOutput size={15} />} label="Convert to Invoice" onClick={convertToInvoice} />
+                        <Item icon={<FileOutput size={15} />} label="Convert to Invoice" onClick={() => {
+                            const newNum = `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+                            setEditingInvoice({ ...quote, documentType: 'invoice' as const, invoiceNumber: newNum, status: PaymentStatus.UNPAID });
+                            setView('CREATE_INVOICE');
+                        }} />
                         <Item icon={<Edit size={15} />} label="Edit Quote" onClick={() => { setEditingInvoice(quote); setView('CREATE_INVOICE'); }} />
                         <Item icon={<Eye size={15} />} label="Preview PDF" onClick={async () => {
                             const w = window.open('about:blank', '_blank');
@@ -98,7 +110,7 @@ const Quotes = () => {
                             } catch { if (w) w.close(); alert("Preview failed."); }
                         }} />
                         <Item icon={<Download size={15} />} label="Download PDF" onClick={() => downloadInvoicePDF(quote, settings, undefined, user?.name || 'Admin')} />
-                        <div className="border-t border-slate-50 mt-1">
+                        <div className="border-t border-slate-100 mt-1">
                             <Item icon={<Trash2 size={15} />} label="Delete Quote" onClick={() => {
                                 if (window.confirm('Delete this quote?')) deleteInvoice(quote.id);
                             }} danger />
@@ -148,7 +160,7 @@ const Quotes = () => {
                 />
             </div>
 
-            {/* Unified Table — works on all screen sizes, no horizontal scroll needed */}
+            {/* Table — no horizontal scroll needed */}
             <div className="bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-2xl overflow-hidden">
                 <table className="w-full">
                     <thead className="bg-slate-900 border-b-2 border-slate-800">
@@ -182,14 +194,11 @@ const Quotes = () => {
                                         <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
                                             {quote.company === 'mirrorzone' ? 'Mirrorzone' : 'Clonmel Glass'}
                                         </div>
-                                        {/* Show customer name on small screens where customer column is hidden */}
                                         <div className="sm:hidden text-xs font-semibold text-slate-700 mt-1">{quote.customerName}</div>
                                     </td>
                                     <td className="py-4 px-5 hidden sm:table-cell">
                                         <div className="font-bold text-slate-900 text-sm">{quote.customerName}</div>
-                                        {quote.customerEmail && (
-                                            <div className="text-xs text-slate-400 mt-0.5">{quote.customerEmail}</div>
-                                        )}
+                                        {quote.customerEmail && <div className="text-xs text-slate-400 mt-0.5">{quote.customerEmail}</div>}
                                         {quote.validUntil && (
                                             <div className="text-[10px] text-slate-400 mt-0.5">
                                                 Valid: {new Date(quote.validUntil).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}

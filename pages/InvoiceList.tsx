@@ -46,7 +46,7 @@ const StatusBadge = ({ status, overdue }: { status: PaymentStatus, overdue?: boo
   );
 };
 
-// ⋯ Dropdown menu for each invoice row
+// ⋯ Dropdown menu — uses position:fixed to escape overflow-hidden containers
 const ActionMenu = ({ inv, onEdit, onPreview, onEmail, onXero, onDownload, onDelete, onPayment, emailCooledDown, xeroLocked }: {
   inv: Invoice;
   onEdit: () => void;
@@ -60,15 +60,28 @@ const ActionMenu = ({ inv, onEdit, onPreview, onEmail, onXero, onDownload, onDel
   xeroLocked: boolean;
 }) => {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, right: 0 });
+  const btnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+    const close = (e: MouseEvent | TouchEvent) => setOpen(false);
+    if (open) {
+      // Close on next click/touch outside
+      const timer = setTimeout(() => {
+        document.addEventListener('mousedown', close, { once: true });
+        document.addEventListener('touchstart', close, { once: true });
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
+
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    }
+    setOpen(v => !v);
+  };
 
   const Item = ({ icon, label, onClick, danger, disabled, muted }: {
     icon: React.ReactNode; label: string; onClick: () => void;
@@ -77,7 +90,7 @@ const ActionMenu = ({ inv, onEdit, onPreview, onEmail, onXero, onDownload, onDel
     <button
       onClick={() => { if (!disabled) { onClick(); setOpen(false); } }}
       disabled={disabled}
-      className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold transition-colors
+      className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold transition-colors text-left
         ${danger ? 'text-rose-600 hover:bg-rose-50' : muted ? 'text-slate-300 cursor-default' : 'text-slate-700 hover:bg-slate-50'}
         ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
     >
@@ -87,9 +100,10 @@ const ActionMenu = ({ inv, onEdit, onPreview, onEmail, onXero, onDownload, onDel
   );
 
   return (
-    <div ref={ref} className="relative flex justify-center">
+    <div className="relative flex justify-center">
       <button
-        onClick={() => setOpen(v => !v)}
+        ref={btnRef}
+        onClick={handleOpen}
         className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
         title="Actions"
       >
@@ -97,8 +111,11 @@ const ActionMenu = ({ inv, onEdit, onPreview, onEmail, onXero, onDownload, onDel
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 z-50 bg-white rounded-2xl shadow-xl border border-slate-100 py-1 w-52 animate-in fade-in zoom-in-95 duration-150">
-          <div className="px-4 py-2 border-b border-slate-50">
+        <div
+          style={{ position: 'fixed', top: pos.top, right: pos.right, zIndex: 9999 }}
+          className="bg-white rounded-2xl shadow-2xl border border-slate-100 py-1 w-52"
+        >
+          <div className="px-4 py-2 border-b border-slate-100">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">{inv.invoiceNumber}</p>
           </div>
           <Item icon={<CreditCard size={15} />} label="Record Payment" onClick={onPayment} />
@@ -111,7 +128,7 @@ const ActionMenu = ({ inv, onEdit, onPreview, onEmail, onXero, onDownload, onDel
             <Item icon={<Check size={15} />} label="Xero Synced ✓" onClick={() => {}} muted />
           )}
           <Item icon={<Download size={15} />} label="Download PDF" onClick={onDownload} />
-          <div className="border-t border-slate-50 mt-1">
+          <div className="border-t border-slate-100 mt-1">
             <Item icon={<Trash2 size={15} />} label="Delete Invoice" onClick={onDelete} danger />
           </div>
         </div>
