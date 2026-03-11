@@ -36,10 +36,19 @@ const InvoiceBuilder = () => {
       if (savedAddr) {
         const parts = savedAddr.split(',').map((s: string) => s.trim()).filter(Boolean);
         setAddressLine1(parts[0] || '');
-        setAddressLine2(parts.length > 4 ? parts[1] : ''); // Only set line2 if there are enough parts
-        setCity(parts.length >= 3 ? parts[parts.length - 3] : (parts[1] || ''));
-        setPostalCode(parts.length >= 2 ? parts[parts.length - 2] : '');
-        setCountry(parts[parts.length - 1] || 'Ireland');
+        setAddressLine2(parts.length > 5 ? parts[1] : '');
+        // Last part is country, second-to-last is postal code, third-to-last is county, fourth-to-last is city
+        if (parts.length >= 4) {
+          setCity(parts[parts.length - 4] || '');
+          setCounty(parts[parts.length - 3] || '');
+          setPostalCode(parts[parts.length - 2] || '');
+          setCountry(parts[parts.length - 1] || 'Ireland');
+        } else if (parts.length === 3) {
+          setCity(parts[1] || '');
+          setPostalCode(parts[2] || '');
+        } else if (parts.length === 2) {
+          setCity(parts[1] || '');
+        }
       }
       setInvoiceDate(editingInvoice.dateIssued.split('T')[0]);
       setDueDate(editingInvoice.dueDate.split('T')[0]);
@@ -83,6 +92,7 @@ const InvoiceBuilder = () => {
   const [addressLine1, setAddressLine1] = useState('');
   const [addressLine2, setAddressLine2] = useState('');
   const [city, setCity] = useState('');
+  const [county, setCounty] = useState('');
   const [postalCode, setPostalCode] = useState('');
   const [country, setCountry] = useState('Ireland');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
@@ -248,7 +258,7 @@ const InvoiceBuilder = () => {
     }
 
     // Combine structured address fields
-    const fullAddress = [addressLine1, addressLine2, city, postalCode, country].filter(Boolean).join(', ');
+    const fullAddress = [addressLine1, addressLine2, city, county, postalCode, country].filter(Boolean).join(', ');
 
     setIsSaving(true);
     try {
@@ -488,6 +498,7 @@ const InvoiceBuilder = () => {
                             setAddressLine1(customer.address || '');
                             setAddressLine2(customer.addressLine2 || '');
                             setCity(customer.city || '');
+                            setCounty(customer.region || '');
                             setPostalCode(customer.postalCode || '');
                             setCountry(customer.country || 'Ireland');
                             // Also update legacy combined field
@@ -576,19 +587,26 @@ const InvoiceBuilder = () => {
               <div className="grid grid-cols-2 gap-3">
                 <input
                   type="text"
-                  placeholder="City"
+                  placeholder="City / Town"
                   className="w-full text-slate-900 bg-white border-2 border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-brand-500 outline-none transition-all"
                   value={city}
                   onChange={e => setCity(e.target.value)}
                 />
                 <input
                   type="text"
-                  placeholder="Eircode / Postcode"
+                  placeholder="County (e.g. Co. Tipperary)"
                   className="w-full text-slate-900 bg-white border-2 border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-brand-500 outline-none transition-all"
-                  value={postalCode}
-                  onChange={e => setPostalCode(e.target.value)}
+                  value={county}
+                  onChange={e => setCounty(e.target.value)}
                 />
               </div>
+              <input
+                type="text"
+                placeholder="Eircode / Postcode"
+                className="w-full text-slate-900 bg-white border-2 border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-brand-500 outline-none transition-all"
+                value={postalCode}
+                onChange={e => setPostalCode(e.target.value)}
+              />
             </div>
           </div>
           <div className="space-y-6">
