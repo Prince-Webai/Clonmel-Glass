@@ -119,12 +119,12 @@ const Quotes = () => {
                 <table className="w-full">
                     <thead className="bg-slate-900 border-b-2 border-slate-800">
                         <tr className="text-white">
-                            <th className="text-left py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Estimate Details</th>
-                            <th className="hidden md:table-cell text-left py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Customer Intelligence</th>
-                            <th className="text-right py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Estimate</th>
-                            <th className="hidden md:table-cell text-center py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Valid Until</th>
-                            <th className="text-center py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Lifecycle Status</th>
-                            <th className="text-center py-6 px-10 text-[10px] font-black uppercase tracking-[0.2em]">Operations</th>
+                            <th className="text-left py-4 px-4 md:py-6 md:px-6 text-[10px] font-black uppercase tracking-[0.2em]">Estimate Details</th>
+                            <th className="hidden md:table-cell text-left py-4 px-4 md:py-6 md:px-6 text-[10px] font-black uppercase tracking-[0.2em]">Customer</th>
+                            <th className="text-right py-4 px-4 md:py-6 md:px-6 text-[10px] font-black uppercase tracking-[0.2em]">Estimate</th>
+                            <th className="hidden lg:table-cell text-center py-4 px-4 md:py-6 md:px-6 text-[10px] font-black uppercase tracking-[0.2em]">Valid Until</th>
+                            <th className="text-center py-4 px-4 md:py-6 md:px-6 text-[10px] font-black uppercase tracking-[0.2em]">Status</th>
+                            <th className="text-center py-4 px-4 md:py-6 md:px-4 text-[10px] font-black uppercase tracking-[0.2em]">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -141,7 +141,7 @@ const Quotes = () => {
                         ) : (
                             filteredQuotes.map(quote => (
                                 <tr key={quote.id} className="hover:bg-slate-50/50 transition-colors group">
-                                    <td className="py-4 px-3 md:py-6 md:px-10">
+                                    <td className="py-4 px-4 md:py-5 md:px-6">
                                         <div className="text-lg font-black text-slate-900 tracking-tight">{quote.invoiceNumber}</div>
                                         <div className="md:hidden font-bold text-slate-700 text-xs mt-1">{quote.customerName}</div>
                                         <div className="text-[10px] font-bold text-slate-400 mt-0.5">
@@ -157,21 +157,21 @@ const Quotes = () => {
                                             <div className="text-xs text-slate-500 mt-1">{quote.customerEmail}</div>
                                         )}
                                     </td>
-                                    <td className="py-4 px-3 md:py-6 md:px-10 text-right whitespace-nowrap">
+                                    <td className="py-4 px-4 md:py-5 md:px-6 text-right whitespace-nowrap">
                                         <div className="text-sm font-black text-slate-900">{formatCurrency(quote.total)}</div>
                                     </td>
-                                    <td className="hidden md:table-cell py-6 px-10 text-center">
+                                    <td className="hidden lg:table-cell py-4 px-4 md:py-5 md:px-6 text-center">
                                         <div className="text-xs font-bold text-slate-600">
                                             {quote.validUntil
                                                 ? new Date(quote.validUntil).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                                                 : '-'}
                                         </div>
                                     </td>
-                                    <td className="py-4 px-3 md:py-6 md:px-10 text-center">
+                                    <td className="py-4 px-4 md:py-5 md:px-6 text-center">
                                         {getStatusBadge(quote.status)}
                                     </td>
-                                    <td className="py-4 px-3 md:py-6 md:px-6">
-                                        <div className="flex items-center justify-center gap-2 transition-opacity overflow-x-auto">
+                                    <td className="py-4 px-2 md:py-5 md:px-4">
+                                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
                                             <button
                                                 onClick={() => {
                                                     // Convert logic: load quote but set as invoice & NEW ID
