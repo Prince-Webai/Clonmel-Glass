@@ -224,11 +224,11 @@ const InvoiceList = () => {
           <table className="w-full">
             <thead>
               <tr className="bg-slate-900 border-b border-slate-800">
-                <th className="text-left py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Customer Intelligence</th>
-                <th className="text-right py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Financials</th>
-                <th className="text-center py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Collection Status</th>
-                <th className="text-center py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Payment State</th>
-                <th className="text-center py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Operations</th>
+                <th className="text-left py-4 px-4 md:py-6 md:px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Customer Intelligence</th>
+                <th className="text-right py-4 px-4 md:py-6 md:px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Financials</th>
+                <th className="hidden lg:table-cell text-center py-4 px-4 md:py-6 md:px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Collection</th>
+                <th className="text-center py-4 px-4 md:py-6 md:px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Status</th>
+                <th className="text-center py-4 px-4 md:py-6 md:px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Operations</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -243,20 +243,20 @@ const InvoiceList = () => {
 
                   return (
                     <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="py-6 px-10">
-                        <div className="text-lg font-black text-slate-900">{inv.customerName || 'Unknown'}</div>
+                      <td className="py-4 px-4 md:py-6 md:px-6">
+                        <div className="text-base font-black text-slate-900">{inv.customerName || 'Unknown'}</div>
                         <div className="text-[10px] font-bold text-slate-400 mt-0.5">{inv.invoiceNumber}</div>
                         <div className="text-[10px] font-bold text-slate-600 mt-1">{formatDate(inv.dateIssued)}</div>
                       </td>
-                      <td className="py-6 px-10 text-right">
+                      <td className="py-4 px-4 md:py-6 md:px-6 text-right">
                         <div className="text-sm font-black text-slate-900">{formatCurrency(inv.total)}</div>
                         <div className="text-[10px] font-bold text-rose-500 mt-0.5">Balance: {formatCurrency(inv.balanceDue || 0)}</div>
                       </td>
-                      <td className="py-6 px-10 align-middle">
+                      <td className="hidden lg:table-cell py-4 px-4 md:py-6 md:px-6 align-middle">
                         <ProgressBar paid={inv.amountPaid || 0} total={inv.total} />
                       </td>
-                      <td className="py-6 px-10 text-center">
-                        <div className="flex flex-col gap-1.5 min-w-[100px]">
+                      <td className="py-4 px-4 md:py-6 md:px-6 text-center">
+                        <div className="flex flex-col gap-1.5 min-w-[90px] items-center">
                           <StatusBadge status={inv.status} overdue={isOverdue} />
                           {inv.xeroSyncStatus === 'synced' && (
                             <span className="inline-flex items-center justify-center gap-1 text-[8px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100 uppercase tracking-tighter">
@@ -270,8 +270,8 @@ const InvoiceList = () => {
                           )}
                         </div>
                       </td>
-                      <td className="py-6 px-10">
-                        <div className="flex items-center justify-center gap-2">
+                      <td className="py-4 px-2 md:py-6 md:px-4">
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
                           {isEditingPayment ? (
                             <div className="flex items-center gap-2 bg-white shadow-lg p-1 rounded-xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
                               <div className="flex gap-1 mr-1">

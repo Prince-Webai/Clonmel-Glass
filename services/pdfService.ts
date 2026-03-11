@@ -2,13 +2,17 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Invoice, PaymentStatus, AppSettings, Customer } from "../types";
 
-// Helper to format currency with comma separators
+// Helper to format currency with comma separators (no space between € and number)
 const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-US', {
+  // Use Intl but strip any inserted space after the € sign
+  return new Intl.NumberFormat('en-IE', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }).format(amount);
 };
+
+// Safely prefix € without any whitespace gap
+const fmtEur = (amount: number): string => `\u20AC${formatCurrency(amount)}`;
 
 // Helper to convert image URL to base64 (Flattened to White Background)
 const getImageBase64 = async (url: string): Promise<string> => {
@@ -223,7 +227,7 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
   doc.setFont("helvetica", "bold");
   const companyName = isMirrorzone
     ? (settings.mirrorZoneName || "MirrorZone")
-    : (settings.companyName || "Clonmel Glass & Mirrors Ltd");
+    : (settings.companyName || "Clonmel Glass");
   doc.text(companyName, col3X, yPos);
 
   doc.setFont("helvetica", "normal");
@@ -349,13 +353,20 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
   const leftColX = margin;
   const rightColX = pageWidth - margin - 80;
 
-  // Local recalculation for display to ensure breakdown is always shown for inclusive
-  const displaySubtotal = invoice.isVatInclusive ? (invoice.total / (1 + (invoice.taxRate || 23) / 100)) : (invoice.subtotal || 0);
-  const displayTaxAmount = invoice.total - displaySubtotal;
+  // Correct VAT display calculation:
+  // - Clonmel Glass (NOT inclusive): subtotal is net, total is gross (net + VAT)
+  // - Mirrorzone (inclusive): total is gross, subtotal must be derived
+  const displaySubtotal = invoice.isVatInclusive
+    ? invoice.total / (1 + (invoice.taxRate || 23) / 100)
+    : (invoice.subtotal ?? 0);
+  const displayTaxAmount = invoice.isVatInclusive
+    ? invoice.total - displaySubtotal
+    : (invoice.taxAmount ?? (invoice.total - displaySubtotal));
+  const displayGross = invoice.isVatInclusive ? invoice.total : displaySubtotal + displayTaxAmount;
 
   // VAT Analysis Table
   const vatRows = [
-    [`23.00%${invoice.isVatInclusive ? ' (Inc)' : ''}`, `€${formatCurrency(displaySubtotal)}`, `€${formatCurrency(displayTaxAmount)}`, `€${formatCurrency(invoice.total)}`]
+    [`23.00%${invoice.isVatInclusive ? ' (Inc)' : ''}`, fmtEur(displaySubtotal), fmtEur(displayTaxAmount), fmtEur(displayGross)]
   ];
 
   doc.setFont("helvetica", "bold");
@@ -411,33 +422,33 @@ const createInvoiceDoc = async (invoice: Invoice, settings: AppSettings, logoUrl
   doc.setLineWidth(0.3);
   doc.line(labX, totalsY, valX, totalsY);
 
-  drawTotalLine("Total Net", `€${formatCurrency(displaySubtotal)}`);
-  drawTotalLine("Total Discount", `€${formatCurrency(0)}`);
-  drawTotalLine("Total VAT (23%)", `€${formatCurrency(displayTaxAmount)}`);
+  drawTotalLine("Total Net", fmtEur(displaySubtotal));
+  drawTotalLine("Total Discount", fmtEur(0));
+  drawTotalLine("Total VAT (23%)", fmtEur(displayTaxAmount));
 
   // Total Gross
   totalsY += 4;
   doc.line(labX, totalsY, valX, totalsY);
   totalsY += 2;
   const finalTotalLabel = invoice.isVatInclusive ? "Total Gross (VAT Inclusive)" : "Total Gross";
-  drawTotalLine(finalTotalLabel, `€${formatCurrency(invoice.total)}`, true);
+  drawTotalLine(finalTotalLabel, fmtEur(displayGross), true);
 
   // Less Deposit Section
   totalsY += 2;
   doc.line(labX, totalsY, valX, totalsY);
-  totalsY += 2; // Extra breathing room before "Less Deposit"
+  totalsY += 2;
 
   const deposit = invoice.amountPaid || 0;
-  drawTotalLine("Less Deposit", `€${formatCurrency(deposit)}`);
+  drawTotalLine("Less Deposit", fmtEur(deposit));
 
   // Total Payable
   totalsY += 4;
   doc.setDrawColor(31, 41, 55);
   doc.setLineWidth(0.5);
-  doc.line(labX, totalsY, valX, totalsY); // Thick line
+  doc.line(labX, totalsY, valX, totalsY);
 
   totalsY += 2;
-  drawTotalLine("Total Payable", `€${formatCurrency(invoice.balanceDue)}`, true, true);
+  drawTotalLine("Total Payable", fmtEur(invoice.balanceDue), true, true);
 
   // 7. FOOTER SECTION
   // @ts-ignore

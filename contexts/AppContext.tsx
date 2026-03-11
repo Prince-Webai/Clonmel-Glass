@@ -103,7 +103,7 @@ const INITIAL_PRODUCTS: Product[] = [
 
 const DEFAULT_SETTINGS: AppSettings = {
   taxRate: 23,
-  companyName: 'Clonmel Glass & Mirrors Ltd',
+  companyName: 'Clonmel Glass',
   companyAddress: 'Unit 3, Clonmel Business Park, Clonmel, Co. Tipperary',
   companyPhone: '+353 52 123 4567',
   companyEmail: 'accounts@clonmelglass.ie',

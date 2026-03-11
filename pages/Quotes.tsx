@@ -115,7 +115,7 @@ const Quotes = () => {
             </div>
 
             {/* Quotes Table (Hidden on Mobile) */}
-            <div className="hidden md:block bg-white rounded-[2.5rem] border-2 border-slate-100 overflow-hidden shadow-2xl">
+            <div className="hidden md:block bg-white rounded-[2.5rem] border-2 border-slate-100 overflow-x-auto shadow-2xl">
                 <table className="w-full">
                     <thead className="bg-slate-900 border-b-2 border-slate-800">
                         <tr className="text-white">
@@ -170,8 +170,8 @@ const Quotes = () => {
                                     <td className="py-4 px-3 md:py-6 md:px-10 text-center">
                                         {getStatusBadge(quote.status)}
                                     </td>
-                                    <td className="py-4 px-3 md:py-6 md:px-10">
-                                        <div className="flex items-center justify-center gap-2 transition-opacity">
+                                    <td className="py-4 px-3 md:py-6 md:px-6">
+                                        <div className="flex items-center justify-center gap-2 transition-opacity overflow-x-auto">
                                             <button
                                                 onClick={() => {
                                                     // Convert logic: load quote but set as invoice & NEW ID
@@ -187,14 +187,14 @@ const Quotes = () => {
                                                     setEditingInvoice(quoteAsInvoice);
                                                     setView('CREATE_INVOICE');
                                                 }}
-                                                className="hidden md:block p-3 text-purple-600 bg-purple-50 hover:bg-purple-500 hover:text-white rounded-2xl transition-all shadow-sm"
+                                                 className="p-3 text-purple-600 bg-purple-50 hover:bg-purple-500 hover:text-white rounded-2xl transition-all shadow-sm"
                                                 title="Convert to Invoice"
                                             >
                                                 <FileOutput size={20} />
                                             </button>
                                             <button
                                                 onClick={() => { setEditingInvoice(quote); setView('CREATE_INVOICE'); }}
-                                                className="hidden md:block p-3 text-amber-500 bg-amber-50 hover:bg-amber-500 hover:text-white rounded-2xl transition-all shadow-sm"
+                                             className="p-3 text-amber-500 bg-amber-50 hover:bg-amber-500 hover:text-white rounded-2xl transition-all shadow-sm"
                                                 title="Edit Quote"
                                             >
                                                 <Edit size={20} />
@@ -229,7 +229,7 @@ const Quotes = () => {
                                                         deleteInvoice(quote.id);
                                                     }
                                                 }}
-                                                className="hidden md:block p-3 text-rose-500 bg-rose-50 hover:bg-rose-500 hover:text-white rounded-2xl transition-all shadow-sm"
+                                                className="p-3 text-rose-500 bg-rose-50 hover:bg-rose-500 hover:text-white rounded-2xl transition-all shadow-sm"
                                                 title="Delete Quote"
                                             >
                                                 <Trash2 size={20} />
