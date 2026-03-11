@@ -131,6 +131,8 @@ export const storageService = {
     if (invoice.customerEmail !== undefined) updatePayload.customer_email = String(invoice.customerEmail);
     if (invoice.customerPhone !== undefined) updatePayload.customer_phone = String(invoice.customerPhone);
     if (invoice.customerAddress !== undefined) updatePayload.customer_address = String(invoice.customerAddress);
+    if (invoice.customerId !== undefined) updatePayload.customer_id = String(invoice.customerId);
+    if (invoice.invoiceNumber !== undefined) updatePayload.invoice_number = String(invoice.invoiceNumber);
     if (invoice.dateIssued !== undefined) updatePayload.date_issued = String(invoice.dateIssued);
     if (invoice.dueDate !== undefined) updatePayload.due_date = String(invoice.dueDate);
     if (invoice.company !== undefined) updatePayload.company = String(invoice.company);
