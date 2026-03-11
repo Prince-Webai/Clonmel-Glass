@@ -331,7 +331,7 @@ const CustomerCRM = () => {
 
             {/* Customer List (Table View) */}
             <div className="bg-white rounded-2xl border-2 border-slate-200 overflow-hidden shadow-sm overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-[600px]">
                     <thead>
                         <tr className="bg-slate-50 border-b-2 border-slate-100">
                             <th className="px-6 py-4 text-left w-12">

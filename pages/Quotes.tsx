@@ -116,7 +116,7 @@ const Quotes = () => {
 
             {/* Quotes Table (Hidden on Mobile) */}
             <div className="hidden md:block bg-white rounded-[2.5rem] border-2 border-slate-100 overflow-x-auto shadow-2xl">
-                <table className="w-full">
+                <table className="w-full min-w-[700px]">
                     <thead className="bg-slate-900 border-b-2 border-slate-800">
                         <tr className="text-white">
                             <th className="text-left py-4 px-4 md:py-6 md:px-6 text-[10px] font-black uppercase tracking-[0.2em]">Estimate Details</th>

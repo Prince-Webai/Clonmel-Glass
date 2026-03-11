@@ -221,7 +221,7 @@ const InvoiceList = () => {
 
       <div className="bg-white rounded-[2.5rem] shadow-sm border-2 border-slate-100 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[680px]">
             <thead>
               <tr className="bg-slate-900 border-b border-slate-800">
                 <th className="text-left py-4 px-4 md:py-6 md:px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Customer Intelligence</th>
