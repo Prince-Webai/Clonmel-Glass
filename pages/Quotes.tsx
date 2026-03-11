@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { Quote, PaymentStatus } from '../types';
-import { FileText, Plus, Search, Eye, Trash2, CheckCircle, XCircle, Clock, Calendar, Edit, FileOutput, Download } from 'lucide-react';
+import { FileText, Plus, Search, Eye, Trash2, CheckCircle, XCircle, Clock, Calendar, Edit, FileOutput, Download, MoreVertical } from 'lucide-react';
 import { generatePreviewUrl, downloadInvoicePDF } from '../services/pdfService';
 
 const Quotes = () => {
@@ -24,113 +24,146 @@ const Quotes = () => {
     };
 
     const getStatusBadge = (status: Quote['status']) => {
-        const config = {
-            PENDING: {
-                style: 'bg-amber-50 text-amber-700 border-amber-200 shadow-[0_2px_10px_rgba(245,158,11,0.1)]',
-                icon: <Clock size={10} />,
-                label: 'PENDING'
-            },
-            [PaymentStatus.UNPAID]: {
-                style: 'bg-amber-50 text-amber-700 border-amber-200 shadow-[0_2px_10px_rgba(245,158,11,0.1)]',
-                icon: <Clock size={10} />,
-                label: 'PENDING'
-            },
-            ACCEPTED: {
-                style: 'bg-emerald-50 text-emerald-700 border-emerald-100 shadow-[0_2px_10px_rgba(16,185,129,0.1)]',
-                icon: <CheckCircle size={10} />,
-                label: 'ACCEPTED'
-            },
-            [PaymentStatus.PAID]: {
-                style: 'bg-emerald-50 text-emerald-700 border-emerald-100 shadow-[0_2px_10px_rgba(16,185,129,0.1)]',
-                icon: <CheckCircle size={10} />,
-                label: 'ACCEPTED'
-            },
-            REJECTED: {
-                style: 'bg-rose-50 text-rose-700 border-rose-200 shadow-[0_2px_10px_rgba(225,29,72,0.1)]',
-                icon: <XCircle size={10} />,
-                label: 'REJECTED'
-            },
-            EXPIRED: {
-                style: 'bg-slate-100 text-slate-500 border-slate-200',
-                icon: <Calendar size={10} />,
-                label: 'EXPIRED'
-            }
+        const config: Record<string, { style: string; icon: React.ReactNode; label: string }> = {
+            PENDING: { style: 'bg-amber-50 text-amber-700 border-amber-200', icon: <Clock size={10} />, label: 'PENDING' },
+            ACCEPTED: { style: 'bg-emerald-50 text-emerald-700 border-emerald-100', icon: <CheckCircle size={10} />, label: 'ACCEPTED' },
+            REJECTED: { style: 'bg-rose-50 text-rose-700 border-rose-200', icon: <XCircle size={10} />, label: 'REJECTED' },
+            EXPIRED: { style: 'bg-slate-50 text-slate-500 border-slate-200', icon: <Calendar size={10} />, label: 'EXPIRED' },
+            UNPAID: { style: 'bg-slate-50 text-slate-500 border-slate-200', icon: <Clock size={10} />, label: 'UNPAID' },
         };
-
         const { style, icon, label } = config[status] || config['PENDING'];
         return (
-            <span className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[8px] font-black border transition-all ${style} tracking-[0.1em]`}>
-                {icon}
-                {label}
+            <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[8px] font-black border ${style} tracking-[0.1em]`}>
+                {icon}{label}
             </span>
+        );
+    };
+
+    // ⋯ Dropdown per quote row
+    const QuoteActionMenu = ({ quote }: { quote: typeof filteredQuotes[0] }) => {
+        const [open, setOpen] = useState(false);
+        const ref = useRef<HTMLDivElement>(null);
+
+        useEffect(() => {
+            const handler = (e: MouseEvent) => {
+                if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+            };
+            document.addEventListener('mousedown', handler);
+            return () => document.removeEventListener('mousedown', handler);
+        }, []);
+
+        const convertToInvoice = () => {
+            const randomVal = Math.floor(1000 + Math.random() * 9000);
+            setEditingInvoice({
+                ...quote,
+                documentType: 'invoice' as const,
+                invoiceNumber: `INV-${new Date().getFullYear()}-${randomVal}`,
+                status: PaymentStatus.UNPAID
+            });
+            setView('CREATE_INVOICE');
+            setOpen(false);
+        };
+
+        const Item = ({ icon, label, onClick, danger }: { icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean }) => (
+            <button
+                onClick={() => { onClick(); setOpen(false); }}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold transition-colors
+                    ${danger ? 'text-rose-600 hover:bg-rose-50' : 'text-slate-700 hover:bg-slate-50'}`}
+            >
+                {icon}{label}
+            </button>
+        );
+
+        return (
+            <div ref={ref} className="relative flex justify-center">
+                <button
+                    onClick={() => setOpen(v => !v)}
+                    className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
+                    title="Actions"
+                >
+                    <MoreVertical size={20} />
+                </button>
+                {open && (
+                    <div className="absolute right-0 top-10 z-50 bg-white rounded-2xl shadow-xl border border-slate-100 py-1 w-52 animate-in fade-in zoom-in-95 duration-150">
+                        <div className="px-4 py-2 border-b border-slate-50">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">{quote.invoiceNumber}</p>
+                        </div>
+                        <Item icon={<FileOutput size={15} />} label="Convert to Invoice" onClick={convertToInvoice} />
+                        <Item icon={<Edit size={15} />} label="Edit Quote" onClick={() => { setEditingInvoice(quote); setView('CREATE_INVOICE'); }} />
+                        <Item icon={<Eye size={15} />} label="Preview PDF" onClick={async () => {
+                            const w = window.open('about:blank', '_blank');
+                            try {
+                                const url = await generatePreviewUrl(quote, settings, undefined, user?.name || 'Admin');
+                                if (w) w.location.href = url;
+                            } catch { if (w) w.close(); alert("Preview failed."); }
+                        }} />
+                        <Item icon={<Download size={15} />} label="Download PDF" onClick={() => downloadInvoicePDF(quote, settings, undefined, user?.name || 'Admin')} />
+                        <div className="border-t border-slate-50 mt-1">
+                            <Item icon={<Trash2 size={15} />} label="Delete Quote" onClick={() => {
+                                if (window.confirm('Delete this quote?')) deleteInvoice(quote.id);
+                            }} danger />
+                        </div>
+                    </div>
+                )}
+            </div>
         );
     };
 
     return (
         <div className="max-w-[95%] mx-auto space-y-6">
+            {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Quote <span className="text-brand-500">Manager</span></h2>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Create and manage customer quotes</p>
                 </div>
-                <div className="flex items-center space-x-3">
-                    <button
-                        onClick={() => {
-                            setEditingInvoice({
-                                id: '',
-                                documentType: 'quote',
-                                invoiceNumber: `QT-${Date.now().toString().slice(-6)}`,
-                                customerName: '',
-                                items: [],
-                                total: 0,
-                                subtotal: 0,
-                                taxAmount: 0,
-                                balanceDue: 0,
-                                amountPaid: 0,
-                                status: PaymentStatus.PENDING,
-                                dateIssued: new Date().toISOString(),
-                                dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                                company: 'clonmel'
-                            } as any);
-                            setView('CREATE_INVOICE');
-                        }}
-                        className="flex items-center gap-2 px-6 py-4 bg-brand-600 text-white rounded-2xl hover:bg-brand-700 transition-all shadow-xl shadow-brand-500/20 font-black text-sm uppercase tracking-wider"
-                    >
-                        <Plus size={20} />
-                        New Quote
-                    </button>
-                </div>
+                <button
+                    onClick={() => {
+                        setEditingInvoice({
+                            id: '', documentType: 'quote',
+                            invoiceNumber: `QT-${Date.now().toString().slice(-6)}`,
+                            customerName: '', items: [], total: 0, subtotal: 0, taxAmount: 0,
+                            balanceDue: 0, amountPaid: 0, status: PaymentStatus.PENDING,
+                            dateIssued: new Date().toISOString(),
+                            dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                            company: 'clonmel'
+                        } as any);
+                        setView('CREATE_INVOICE');
+                    }}
+                    className="flex items-center gap-2 px-6 py-4 bg-brand-600 text-white rounded-2xl hover:bg-brand-700 transition-all shadow-xl shadow-brand-500/20 font-black text-sm uppercase tracking-wider whitespace-nowrap"
+                >
+                    <Plus size={20} /> New Quote
+                </button>
             </div>
 
-            {/* Search Bar */}
+            {/* Search */}
             <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                 <input
                     type="text"
                     placeholder="Search quotes by customer or quote number..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={e => setSearchTerm(e.target.value)}
                     className="w-full pl-12 pr-4 py-4 bg-white border-2 border-slate-200 rounded-2xl focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition-all text-sm font-semibold"
                 />
             </div>
 
-            {/* Quotes Table (Hidden on Mobile) */}
-            <div className="hidden md:block bg-white rounded-[2.5rem] border-2 border-slate-100 overflow-x-auto shadow-2xl">
-                <table className="w-full min-w-[700px]">
+            {/* Unified Table — works on all screen sizes, no horizontal scroll needed */}
+            <div className="bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-2xl overflow-hidden">
+                <table className="w-full">
                     <thead className="bg-slate-900 border-b-2 border-slate-800">
                         <tr className="text-white">
-                            <th className="text-left py-4 px-4 md:py-6 md:px-6 text-[10px] font-black uppercase tracking-[0.2em]">Estimate Details</th>
-                            <th className="hidden md:table-cell text-left py-4 px-4 md:py-6 md:px-6 text-[10px] font-black uppercase tracking-[0.2em]">Customer</th>
-                            <th className="text-right py-4 px-4 md:py-6 md:px-6 text-[10px] font-black uppercase tracking-[0.2em]">Estimate</th>
-                            <th className="hidden lg:table-cell text-center py-4 px-4 md:py-6 md:px-6 text-[10px] font-black uppercase tracking-[0.2em]">Valid Until</th>
-                            <th className="text-center py-4 px-4 md:py-6 md:px-6 text-[10px] font-black uppercase tracking-[0.2em]">Status</th>
-                            <th className="text-center py-4 px-4 md:py-6 md:px-4 text-[10px] font-black uppercase tracking-[0.2em]">Actions</th>
+                            <th className="text-left py-4 px-5 text-[10px] font-black uppercase tracking-[0.2em]">Quote</th>
+                            <th className="text-left py-4 px-5 text-[10px] font-black uppercase tracking-[0.2em] hidden sm:table-cell">Customer</th>
+                            <th className="text-right py-4 px-5 text-[10px] font-black uppercase tracking-[0.2em]">Total</th>
+                            <th className="text-center py-4 px-5 text-[10px] font-black uppercase tracking-[0.2em]">Status</th>
+                            <th className="text-center py-4 px-4 text-[10px] font-black uppercase tracking-[0.2em]">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {filteredQuotes.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="py-20 text-center">
+                                <td colSpan={5} className="py-20 text-center">
                                     <div className="inline-flex items-center justify-center w-20 h-20 bg-slate-100 rounded-full mb-4">
                                         <FileText size={40} className="text-slate-400" />
                                     </div>
@@ -140,208 +173,43 @@ const Quotes = () => {
                             </tr>
                         ) : (
                             filteredQuotes.map(quote => (
-                                <tr key={quote.id} className="hover:bg-slate-50/50 transition-colors group">
-                                    <td className="py-4 px-4 md:py-5 md:px-6">
-                                        <div className="text-lg font-black text-slate-900 tracking-tight">{quote.invoiceNumber}</div>
-                                        <div className="md:hidden font-bold text-slate-700 text-xs mt-1">{quote.customerName}</div>
+                                <tr key={quote.id} className="hover:bg-slate-50/50 transition-colors">
+                                    <td className="py-4 px-5">
+                                        <div className="font-black text-slate-900 text-sm">{quote.invoiceNumber}</div>
                                         <div className="text-[10px] font-bold text-slate-400 mt-0.5">
-                                            Issued: {new Date(quote.dateIssued).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                            {new Date(quote.dateIssued).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                                         </div>
-                                        <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">
+                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
                                             {quote.company === 'mirrorzone' ? 'Mirrorzone' : 'Clonmel Glass'}
                                         </div>
+                                        {/* Show customer name on small screens where customer column is hidden */}
+                                        <div className="sm:hidden text-xs font-semibold text-slate-700 mt-1">{quote.customerName}</div>
                                     </td>
-                                    <td className="hidden md:table-cell py-6 px-10">
-                                        <div className="font-bold text-slate-900">{quote.customerName}</div>
+                                    <td className="py-4 px-5 hidden sm:table-cell">
+                                        <div className="font-bold text-slate-900 text-sm">{quote.customerName}</div>
                                         {quote.customerEmail && (
-                                            <div className="text-xs text-slate-500 mt-1">{quote.customerEmail}</div>
+                                            <div className="text-xs text-slate-400 mt-0.5">{quote.customerEmail}</div>
+                                        )}
+                                        {quote.validUntil && (
+                                            <div className="text-[10px] text-slate-400 mt-0.5">
+                                                Valid: {new Date(quote.validUntil).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                            </div>
                                         )}
                                     </td>
-                                    <td className="py-4 px-4 md:py-5 md:px-6 text-right whitespace-nowrap">
-                                        <div className="text-sm font-black text-slate-900">{formatCurrency(quote.total)}</div>
+                                    <td className="py-4 px-5 text-right">
+                                        <div className="font-black text-slate-900 text-sm whitespace-nowrap">{formatCurrency(quote.total)}</div>
                                     </td>
-                                    <td className="hidden lg:table-cell py-4 px-4 md:py-5 md:px-6 text-center">
-                                        <div className="text-xs font-bold text-slate-600">
-                                            {quote.validUntil
-                                                ? new Date(quote.validUntil).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                                                : '-'}
-                                        </div>
-                                    </td>
-                                    <td className="py-4 px-4 md:py-5 md:px-6 text-center">
+                                    <td className="py-4 px-5 text-center">
                                         {getStatusBadge(quote.status)}
                                     </td>
-                                    <td className="py-4 px-2 md:py-5 md:px-4">
-                                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                                            <button
-                                                onClick={() => {
-                                                    // Convert logic: load quote but set as invoice & NEW ID
-                                                    const randomVal = Math.floor(1000 + Math.random() * 9000);
-                                                    const newInvoiceNumber = `INV-${new Date().getFullYear()}-${randomVal}`;
-                                                    const quoteAsInvoice = {
-                                                        ...quote,
-                                                        // Keep ID to update existing record instead of creating duplicate
-                                                        documentType: 'invoice' as const,
-                                                        invoiceNumber: newInvoiceNumber,
-                                                        status: PaymentStatus.UNPAID
-                                                    };
-                                                    setEditingInvoice(quoteAsInvoice);
-                                                    setView('CREATE_INVOICE');
-                                                }}
-                                                 className="p-3 text-purple-600 bg-purple-50 hover:bg-purple-500 hover:text-white rounded-2xl transition-all shadow-sm"
-                                                title="Convert to Invoice"
-                                            >
-                                                <FileOutput size={20} />
-                                            </button>
-                                            <button
-                                                onClick={() => { setEditingInvoice(quote); setView('CREATE_INVOICE'); }}
-                                             className="p-3 text-amber-500 bg-amber-50 hover:bg-amber-500 hover:text-white rounded-2xl transition-all shadow-sm"
-                                                title="Edit Quote"
-                                            >
-                                                <Edit size={20} />
-                                            </button>
-                                            <button
-                                                onClick={async () => {
-                                                    const previewWindow = window.open('about:blank', '_blank');
-                                                    try {
-                                                        const url = await generatePreviewUrl(quote, settings, undefined, user?.name || 'Admin');
-                                                        if (previewWindow) previewWindow.location.href = url;
-                                                    } catch (err) {
-                                                        console.error("Preview failed:", err);
-                                                        if (previewWindow) previewWindow.close();
-                                                        alert("Failed to generate preview.");
-                                                    }
-                                                }}
-                                                className="p-3 text-brand-600 bg-brand-50 hover:bg-brand-600 hover:text-white rounded-2xl transition-all shadow-sm active:scale-95"
-                                                title="View Quote PDF"
-                                            >
-                                                <Eye size={20} />
-                                            </button>
-                                            <button
-                                                onClick={() => downloadInvoicePDF(quote, settings, undefined, user?.name || 'Admin')}
-                                                className="p-3 text-slate-600 bg-slate-100 hover:bg-slate-600 hover:text-white rounded-2xl transition-all shadow-sm active:scale-95"
-                                                title="Download Quote PDF"
-                                            >
-                                                <Download size={20} />
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    if (window.confirm('Are you sure you want to delete this quote?')) {
-                                                        deleteInvoice(quote.id);
-                                                    }
-                                                }}
-                                                className="p-3 text-rose-500 bg-rose-50 hover:bg-rose-500 hover:text-white rounded-2xl transition-all shadow-sm"
-                                                title="Delete Quote"
-                                            >
-                                                <Trash2 size={20} />
-                                            </button>
-                                        </div>
+                                    <td className="py-4 px-3 text-center">
+                                        <QuoteActionMenu quote={quote} />
                                     </td>
                                 </tr>
                             ))
                         )}
                     </tbody>
                 </table>
-            </div>
-
-            {/* Mobile Card View */}
-            <div className="md:hidden space-y-4 pb-20">
-                {filteredQuotes.length === 0 ? (
-                    <div className="py-12 text-center bg-white rounded-2xl border-2 border-slate-100">
-                        <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-full mb-3">
-                            <FileText size={32} className="text-slate-400" />
-                        </div>
-                        <p className="text-slate-500 font-bold">No quotes found</p>
-                    </div>
-                ) : (
-                    filteredQuotes.map(quote => (
-                        <div key={quote.id} className="bg-white rounded-2xl p-5 border-2 border-slate-100 shadow-sm relative overflow-hidden">
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-lg font-black text-slate-900">{quote.invoiceNumber}</span>
-                                        {getStatusBadge(quote.status)}
-                                    </div>
-                                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                        {new Date(quote.dateIssued).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-lg font-black text-brand-600">{formatCurrency(quote.total)}</div>
-                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total</div>
-                                </div>
-                            </div>
-
-                            <div className="bg-slate-50 rounded-xl p-3 mb-4 flex justify-between items-center">
-                                <div>
-                                    <div className="text-sm font-bold text-slate-900">{quote.customerName}</div>
-                                    <div className="text-[10px] text-slate-500 uppercase font-semibold">{quote.company === 'mirrorzone' ? 'Mirrorzone' : 'Clonmel Glass'}</div>
-                                </div>
-                                {quote.validUntil && (
-                                    <div className="text-right">
-                                        <div className="text-[10px] font-bold text-slate-400 uppercase">Valid Until</div>
-                                        <div className="text-xs font-bold text-slate-700">
-                                            {new Date(quote.validUntil).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="grid grid-cols-4 gap-2">
-                                <button
-                                    onClick={() => { setEditingInvoice(quote); setView('CREATE_INVOICE'); }}
-                                    className="flex flex-col items-center justify-center p-2 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition-colors"
-                                >
-                                    <Edit size={18} />
-                                    <span className="text-[9px] font-bold mt-1 uppercase">Edit</span>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        const randomVal = Math.floor(1000 + Math.random() * 9000);
-                                        const newInvoiceNumber = `INV-${new Date().getFullYear()}-${randomVal}`;
-                                        const quoteAsInvoice = {
-                                            ...quote,
-                                            documentType: 'invoice' as const,
-                                            invoiceNumber: newInvoiceNumber,
-                                            status: PaymentStatus.UNPAID
-                                        };
-                                        setEditingInvoice(quoteAsInvoice);
-                                        setView('CREATE_INVOICE');
-                                    }}
-                                    className="flex flex-col items-center justify-center p-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition-colors"
-                                >
-                                    <FileOutput size={18} />
-                                    <span className="text-[9px] font-bold mt-1 uppercase">Convert</span>
-                                </button>
-                                <button
-                                    onClick={async () => {
-                                        const previewWindow = window.open('about:blank', '_blank');
-                                        try {
-                                            const url = await generatePreviewUrl(quote, settings, undefined, user?.name || 'Admin');
-                                            if (previewWindow) previewWindow.location.href = url;
-                                        } catch (err) {
-                                            console.error("Preview failed:", err);
-                                            if (previewWindow) previewWindow.close();
-                                            alert("Failed to generate preview.");
-                                        }
-                                    }}
-                                    className="flex flex-col items-center justify-center p-2 bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100 transition-colors"
-                                >
-                                    <Eye size={18} />
-                                    <span className="text-[9px] font-bold mt-1 uppercase">View</span>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        if (window.confirm('Delete this quote?')) deleteInvoice(quote.id);
-                                    }}
-                                    className="flex flex-col items-center justify-center p-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 transition-colors"
-                                >
-                                    <Trash2 size={18} />
-                                    <span className="text-[9px] font-bold mt-1 uppercase">Delete</span>
-                                </button>
-                            </div>
-                        </div>
-                    ))
-                )}
             </div>
         </div>
     );
