@@ -31,6 +31,16 @@ const InvoiceBuilder = () => {
       setCustomerEmail(editingInvoice.customerEmail || '');
       setCustomerPhone(editingInvoice.customerPhone || '');
       setCustomerAddress(editingInvoice.customerAddress || '');
+      // Parse stored customerAddress back into structured fields for editing
+      const savedAddr = editingInvoice.customerAddress || '';
+      if (savedAddr) {
+        const parts = savedAddr.split(',').map((s: string) => s.trim()).filter(Boolean);
+        setAddressLine1(parts[0] || '');
+        setAddressLine2(parts.length > 4 ? parts[1] : ''); // Only set line2 if there are enough parts
+        setCity(parts.length >= 3 ? parts[parts.length - 3] : (parts[1] || ''));
+        setPostalCode(parts.length >= 2 ? parts[parts.length - 2] : '');
+        setCountry(parts[parts.length - 1] || 'Ireland');
+      }
       setInvoiceDate(editingInvoice.dateIssued.split('T')[0]);
       setDueDate(editingInvoice.dueDate.split('T')[0]);
       setItems(editingInvoice.items);
@@ -474,6 +484,13 @@ const InvoiceBuilder = () => {
                             setCustomerName(customer.name);
                             setCustomerEmail(customer.email);
                             setCustomerPhone(customer.phone);
+                            // Populate ALL structured address fields from the customer record
+                            setAddressLine1(customer.address || '');
+                            setAddressLine2(customer.addressLine2 || '');
+                            setCity(customer.city || '');
+                            setPostalCode(customer.postalCode || '');
+                            setCountry(customer.country || 'Ireland');
+                            // Also update legacy combined field
                             const parts = [customer.address, customer.city, customer.postalCode, customer.country];
                             setCustomerAddress(parts.filter(Boolean).join(', '));
                             setCustomerSearchTerm(customer.name);
