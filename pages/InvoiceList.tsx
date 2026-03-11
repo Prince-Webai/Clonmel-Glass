@@ -64,14 +64,22 @@ const ActionMenu = ({ inv, onEdit, onPreview, onEmail, onXero, onDownload, onDel
   const btnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    const close = (e: MouseEvent | TouchEvent) => setOpen(false);
+    const close = (e: MouseEvent | TouchEvent) => {
+        if (btnRef.current && !btnRef.current.closest('[data-menu]')?.contains(e.target as Node)) {
+            setOpen(false);
+        }
+    };
     if (open) {
       // Close on next click/touch outside
       const timer = setTimeout(() => {
-        document.addEventListener('mousedown', close, { once: true });
-        document.addEventListener('touchstart', close, { once: true });
+        document.addEventListener('mousedown', close);
+        document.addEventListener('touchstart', close);
       }, 50);
-      return () => clearTimeout(timer);
+      return () => {
+          clearTimeout(timer);
+          document.removeEventListener('mousedown', close);
+          document.removeEventListener('touchstart', close);
+      };
     }
   }, [open]);
 
@@ -88,7 +96,7 @@ const ActionMenu = ({ inv, onEdit, onPreview, onEmail, onXero, onDownload, onDel
     danger?: boolean; disabled?: boolean; muted?: boolean;
   }) => (
     <button
-      onClick={() => { if (!disabled) { onClick(); setOpen(false); } }}
+      onClick={(e) => { e.stopPropagation(); if (!disabled) { onClick(); setOpen(false); } }}
       disabled={disabled}
       className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold transition-colors text-left
         ${danger ? 'text-rose-600 hover:bg-rose-50' : muted ? 'text-slate-300 cursor-default' : 'text-slate-700 hover:bg-slate-50'}
@@ -100,10 +108,10 @@ const ActionMenu = ({ inv, onEdit, onPreview, onEmail, onXero, onDownload, onDel
   );
 
   return (
-    <div className="relative flex justify-center">
-      <button
-        ref={btnRef}
-        onClick={handleOpen}
+        <div data-menu="true" className="relative flex justify-center lg:hidden">
+            <button
+                ref={btnRef}
+                onClick={(e) => { e.stopPropagation(); handleOpen(); }}
         className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
         title="Actions"
       >
@@ -310,24 +318,6 @@ const InvoiceList = () => {
                           <button onClick={() => { setEditingPaymentId(null); setPaymentAmount(''); }} className="p-1 bg-slate-100 text-slate-500 rounded hover:bg-slate-200"><X size={12} strokeWidth={3} /></button>
                         </div>
                       )}
-                    </td>
-                    <td className="py-4 px-3 text-center">
-                      <ActionMenu
-                        inv={inv}
-                        emailCooledDown={emailCooledDown}
-                        xeroLocked={xeroLocked}
-                        onEdit={() => { setEditingInvoice(inv); setView('CREATE_INVOICE'); }}
-                        onPreview={async () => {
-                          const w = window.open('about:blank', '_blank');
-                          try { const url = await generatePreviewUrl(inv, settings, undefined, user?.name || 'Admin'); if (w) w.location.href = url; }
-                          catch { if (w) w.close(); alert("Preview failed."); }
-                        }}
-                        onEmail={() => handleSendEmail(inv)}
-                        onXero={() => handleXeroTransfer(inv)}
-                        onDownload={() => downloadInvoicePDF(inv, settings, undefined, user?.name || 'Admin')}
-                        onDelete={() => handleDelete(inv)}
-                        onPayment={() => { setEditingPaymentId(inv.id); setPaymentAmount((inv.balanceDue || 0).toString()); }}
-                      />
                     </td>
                   </tr>
                 );

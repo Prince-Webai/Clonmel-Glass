@@ -69,7 +69,7 @@ const Quotes = () => {
 
         const Item = ({ icon, label, onClick, danger }: { icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean }) => (
             <button
-                onClick={() => { onClick(); setOpen(false); }}
+                onClick={(e) => { e.stopPropagation(); onClick(); setOpen(false); }}
                 className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold transition-colors text-left
                     ${danger ? 'text-rose-600 hover:bg-rose-50' : 'text-slate-700 hover:bg-slate-50'}`}
             >
@@ -78,10 +78,10 @@ const Quotes = () => {
         );
 
         return (
-            <div data-menu="true" className="relative flex justify-center">
+            <div data-menu="true" className="relative flex justify-center lg:hidden">
                 <button
                     ref={btnRef}
-                    onClick={handleOpen}
+                    onClick={(e) => { e.stopPropagation(); handleOpen(); }}
                     className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
                     title="Actions"
                 >
@@ -106,7 +106,6 @@ const Quotes = () => {
                                     status: PaymentStatus.UNPAID
                                 });
                                 setView('CREATE_INVOICE');
-                                setOpen(false);
                             };
                             convertToInvoice();
                         }} />
@@ -126,6 +125,64 @@ const Quotes = () => {
                         </div>
                     </div>
                 )}
+            </div>
+        );
+    };
+
+    // Explicit Action Icons for Desktop
+    const DesktopActions = ({ quote }: { quote: typeof filteredQuotes[0] }) => {
+        return (
+            <div className="hidden lg:flex items-center justify-end gap-2">
+                <button
+                    onClick={() => {
+                        const randomVal = Math.floor(1000 + Math.random() * 9000);
+                        setEditingInvoice({
+                            ...quote,
+                            documentType: 'invoice' as const,
+                            invoiceNumber: `INV-${new Date().getFullYear()}-${randomVal}`,
+                            status: PaymentStatus.UNPAID
+                        });
+                        setView('CREATE_INVOICE');
+                    }}
+                    title="Convert to Invoice"
+                    className="p-2 text-brand-500 hover:bg-brand-50 rounded-lg transition-colors"
+                >
+                    <FileOutput size={18} />
+                </button>
+                <button
+                    onClick={() => { setEditingInvoice(quote); setView('CREATE_INVOICE'); }}
+                    title="Edit Quote"
+                    className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                >
+                    <Edit size={18} />
+                </button>
+                 <button
+                    onClick={async () => {
+                        const w = window.open('about:blank', '_blank');
+                        try {
+                            const url = await generatePreviewUrl(quote, settings, undefined, user?.name || 'Admin');
+                            if (w) w.location.href = url;
+                        } catch { if (w) w.close(); alert("Preview failed."); }
+                    }}
+                    title="Preview PDF"
+                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                    <Eye size={18} />
+                </button>
+                <button
+                    onClick={() => downloadInvoicePDF(quote, settings, undefined, user?.name || 'Admin')}
+                    title="Download PDF"
+                    className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                >
+                    <Download size={18} />
+                </button>
+                <button
+                    onClick={() => { if (window.confirm('Delete this quote?')) deleteInvoice(quote.id); }}
+                    title="Delete Quote"
+                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                >
+                    <Trash2 size={18} />
+                </button>
             </div>
         );
     };
@@ -220,8 +277,11 @@ const Quotes = () => {
                                     <td className="py-4 px-5 text-center">
                                         {getStatusBadge(quote.status)}
                                     </td>
-                                    <td className="py-4 px-3 text-center">
-                                        <QuoteActionMenu quote={quote} />
+                                    <td className="py-4 px-6 relative">
+                                        <div className="flex justify-end items-center gap-2">
+                                            <QuoteActionMenu quote={quote} />
+                                            <DesktopActions quote={quote} />
+                                        </div>
                                     </td>
                                 </tr>
                             ))
