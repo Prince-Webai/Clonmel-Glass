@@ -230,8 +230,10 @@ const ClientDetailModal = ({ invoice, onClose, onSendReminder, isReminding }: {
 
 const Dashboard = () => {
   const { invoices, user, databaseError, updateInvoice, companyLogo, refreshDatabase, settings } = useApp();
-  // Initialize state from session storage
+  // Initialize state from session storage, but ALWAYS unlock for non-admins
   const [isLocked, setIsLocked] = useState(() => {
+    if (user?.role !== UserRole.ADMIN) return false;
+    
     if (typeof window !== 'undefined') {
       return sessionStorage.getItem('dashboard_unlocked') !== 'true';
     }
@@ -243,10 +245,14 @@ const Dashboard = () => {
 
   // Focus effect
   useEffect(() => {
+    if (user?.role !== UserRole.ADMIN) {
+        setIsLocked(false);
+        return;
+    }
     if (isLocked && pinRefs.current[0]) {
       pinRefs.current[0]?.focus();
     }
-  }, [isLocked]);
+  }, [isLocked, user]);
 
   // PIN Validation Effect
   useEffect(() => {
