@@ -319,6 +319,65 @@ const InvoiceList = () => {
                         </div>
                       )}
                     </td>
+                    <td className="py-4 px-6 relative">
+                      <div className="flex justify-end items-center gap-2">
+                        <ActionMenu 
+                          inv={inv} 
+                          onEdit={() => { setEditingInvoice(inv); setView('CREATE_INVOICE'); }}
+                          onPreview={async () => {
+                            const w = window.open('about:blank', '_blank');
+                            try { const url = await generatePreviewUrl(inv, settings, undefined, user?.name || 'Admin'); if (w) w.location.href = url; }
+                            catch { if (w) w.close(); alert("Preview failed."); }
+                          }}
+                          onEmail={() => handleSendEmail(inv)}
+                          onXero={() => handleXeroTransfer(inv)}
+                          onDownload={() => downloadInvoicePDF(inv, settings, undefined, user?.name || 'Admin')}
+                          onDelete={() => handleDelete(inv)}
+                          onPayment={() => { setEditingPaymentId(inv.id); setPaymentAmount((inv.balanceDue || 0).toString()); }}
+                          emailCooledDown={emailCooledDown}
+                          xeroLocked={xeroLocked}
+                        />
+
+                        {/* Explicit Action Icons for Desktop */}
+                        <div className="hidden lg:flex items-center justify-end gap-1.5 px-2">
+                            <button onClick={() => { setEditingPaymentId(inv.id); setPaymentAmount((inv.balanceDue || 0).toString()); }} title="Record Payment" className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
+                                <CreditCard size={18} />
+                            </button>
+                            <button onClick={() => { setEditingInvoice(inv); setView('CREATE_INVOICE'); }} title="Edit Invoice" className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                <Edit size={18} />
+                            </button>
+                            <button 
+                                onClick={async () => {
+                                  const w = window.open('about:blank', '_blank');
+                                  try { const url = await generatePreviewUrl(inv, settings, undefined, user?.name || 'Admin'); if (w) w.location.href = url; }
+                                  catch { if (w) w.close(); alert("Preview failed."); }
+                                }} 
+                                title="Preview PDF" 
+                                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                            >
+                                <Eye size={18} />
+                            </button>
+                            <button disabled={emailCooledDown} onClick={() => handleSendEmail(inv)} title={emailCooledDown ? "Email (4hr cooldown)" : "Send Email"} className={`p-2 transition-colors rounded-lg ${emailCooledDown ? 'text-slate-300 cursor-not-allowed' : 'text-amber-500 hover:bg-amber-50'}`}>
+                                <Mail size={18} />
+                            </button>
+                            {inv.xeroSyncStatus !== 'synced' ? (
+                                <button disabled={xeroLocked} onClick={() => handleXeroTransfer(inv)} title={xeroLocked ? "Xero (pay first)" : "Send to Xero"} className={`p-2 transition-colors rounded-lg ${xeroLocked ? 'text-slate-300 cursor-not-allowed' : 'text-[#13b5ea] hover:bg-[#13b5ea]/10'}`}>
+                                    <ArrowRightCircle size={18} />
+                                </button>
+                            ) : (
+                                <button disabled title="Xero Synced ✓" className="p-2 text-slate-300 cursor-default rounded-lg">
+                                    <Check size={18} />
+                                </button>
+                            )}
+                            <button onClick={() => downloadInvoicePDF(inv, settings, undefined, user?.name || 'Admin')} title="Download PDF" className="p-2 text-teal-600 hover:bg-teal-50 rounded-lg transition-colors">
+                                <Download size={18} />
+                            </button>
+                            <button onClick={() => handleDelete(inv)} title="Delete Invoice" className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors">
+                                <Trash2 size={18} />
+                            </button>
+                        </div>
+                      </div>
+                    </td>
                   </tr>
                 );
               })
