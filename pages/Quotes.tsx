@@ -119,8 +119,11 @@ const Quotes = () => {
                         }} />
                         <Item icon={<Download size={15} />} label="Download PDF" onClick={() => downloadInvoicePDF(quote, settings, undefined, user?.name || 'Admin')} />
                         <div className="border-t border-slate-100 mt-1">
-                            <Item icon={<Trash2 size={15} />} label="Delete Quote" onClick={() => {
-                                if (window.confirm('Delete this quote?')) deleteInvoice(quote.id);
+                            <Item icon={<Trash2 size={15} />} label="Delete Quote" onClick={async () => {
+                                if (window.confirm('Delete this quote?')) {
+                                    try { await deleteInvoice(quote.id); }
+                                    catch (e) { alert("Error deleting quote. Please try again."); }
+                                }
                             }} danger />
                         </div>
                     </div>
@@ -177,7 +180,12 @@ const Quotes = () => {
                     <Download size={18} />
                 </button>
                 <button
-                    onClick={() => { if (window.confirm('Delete this quote?')) deleteInvoice(quote.id); }}
+                    onClick={async () => { 
+                        if (window.confirm('Delete this quote?')) {
+                            try { await deleteInvoice(quote.id); }
+                            catch (e) { alert("Error deleting quote. Please try again."); }
+                        }
+                    }}
                     title="Delete Quote"
                     className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
                 >
