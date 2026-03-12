@@ -43,7 +43,7 @@ const InvoiceBuilder = () => {
           setCity(parts[parts.length - 4] || '');
           setCounty(parts[parts.length - 3] || '');
           setPostalCode(parts[parts.length - 2] || '');
-          setCountry(parts[parts.length - 1] || 'Ireland');
+          setCounty(parts[parts.length - 1] || '');
         } else if (parts.length === 3) {
           setCity(parts[1] || '');
           setPostalCode(parts[2] || '');
@@ -95,7 +95,6 @@ const InvoiceBuilder = () => {
   const [city, setCity] = useState('');
   const [county, setCounty] = useState('');
   const [postalCode, setPostalCode] = useState('');
-  const [country, setCountry] = useState('Ireland');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
   const [items, setItems] = useState<InvoiceItem[]>([]);
@@ -259,7 +258,7 @@ const InvoiceBuilder = () => {
     }
 
     // Combine structured address fields
-    const fullAddress = [addressLine1, addressLine2, city, county, postalCode, country].filter(Boolean).join(', ');
+    const fullAddress = [addressLine1, addressLine2, city, county, postalCode].filter(Boolean).join(', ');
 
     setIsSaving(true);
     try {
@@ -285,8 +284,8 @@ const InvoiceBuilder = () => {
             address: addressLine1,
             addressLine2: addressLine2,
             city: city,
+            county: county,
             postalCode: postalCode,
-            country: country,
             company: '', // Optional
             notes: 'Auto-created from Invoice Builder',
             tags: ['Auto-Created'],
@@ -499,11 +498,10 @@ const InvoiceBuilder = () => {
                             setAddressLine1(customer.address || '');
                             setAddressLine2(customer.addressLine2 || '');
                             setCity(customer.city || '');
-                            setCounty(customer.region || '');
+                            setCounty(customer.county || customer.country || '');
                             setPostalCode(customer.postalCode || '');
-                            setCountry(customer.country || 'Ireland');
                             // Also update legacy combined field
-                            const parts = [customer.address, customer.city, customer.postalCode, customer.country];
+                            const parts = [customer.address, customer.city, customer.postalCode, customer.county || customer.country];
                             setCustomerAddress(parts.filter(Boolean).join(', '));
                             setCustomerSearchTerm(customer.name);
                             setSelectedCustomerId(customer.id);
@@ -1069,9 +1067,10 @@ const InvoiceBuilder = () => {
                     </button>
                     <button 
                         onClick={async () => {
+                            const idToDelete = confirmingDeleteId;
+                            setConfirmingDeleteId(null);
                             try { 
-                                await deleteInvoice(confirmingDeleteId); 
-                                setConfirmingDeleteId(null);
+                                await deleteInvoice(idToDelete); 
                                 showToast(`${documentType === 'quote' ? 'Quote' : 'Invoice'} deleted successfully.`, "success");
                                 setView(documentType === 'quote' ? 'QUOTES' : 'INVOICES');
                             } catch (e) { 

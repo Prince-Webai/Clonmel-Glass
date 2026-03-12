@@ -22,7 +22,7 @@ const CustomerCRM = () => {
         city: '',
         region: '',
         postalCode: '',
-        country: 'Ireland',
+        county: '',
         company: '',
         notes: '',
         tags: [] as string[]
@@ -72,10 +72,10 @@ const CustomerCRM = () => {
                 else if (h.includes('city')) entry.city = val;
                 else if (h.includes('address') && (h.includes('2') || h.includes('line 2'))) entry.addressLine2 = val;
                 else if (h.includes('address') || h.includes('street')) entry.address = val;
-                else if (h.includes('region') || h.includes('county') || h.includes('state') || h.includes('province')) entry.region = val;
+                else if (h.includes('county') || h.includes('state') || h.includes('province') || h.includes('region')) entry.county = val; // Changed from entry.region to entry.county, added region to check
                 else if (h.includes('company')) entry.company = val;
                 else if (h.includes('code') || h.includes('zip') || h.includes('post')) entry.postalCode = val;
-                else if (h.includes('country')) entry.country = val;
+                // Removed the original 'country' mapping as it's now handled by 'county' or will be explicitly set
             });
 
             if (!entry.name && row[0]) entry.name = row[0];
@@ -115,7 +115,7 @@ const CustomerCRM = () => {
                                 address: contact.address || '',
                                 city: contact.city || '',
                                 postalCode: contact.postalCode || '',
-                                country: contact.country || 'Ireland',
+                                county: contact.county || '', // Changed from country to county, removed 'Ireland' default
                                 company: contact.company || '',
                                 notes: 'Imported via CSV',
                                 tags: ['Imported'],
@@ -155,9 +155,8 @@ const CustomerCRM = () => {
                 address: customer.address || '',
                 addressLine2: customer.addressLine2 || '',
                 city: customer.city || '',
-                region: customer.region || '',
+                county: customer.county || '',
                 postalCode: customer.postalCode || '',
-                country: customer.country || 'Ireland',
                 company: customer.company || '',
                 notes: customer.notes || '',
                 tags: customer.tags || []
@@ -171,9 +170,8 @@ const CustomerCRM = () => {
                 address: '',
                 addressLine2: '',
                 city: '',
-                region: '',
+                county: '',
                 postalCode: '',
-                country: 'Ireland',
                 company: '',
                 notes: '',
                 tags: []
@@ -528,7 +526,6 @@ const CustomerCRM = () => {
                                         placeholder="Suite, Unit, Building, etc."
                                     />
                                 </div>
-
                                 <div>
                                     <label className="block text-xs font-black text-slate-600 mb-2 uppercase tracking-wider">City</label>
                                     <input
@@ -541,11 +538,11 @@ const CustomerCRM = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-black text-slate-600 mb-2 uppercase tracking-wider">Region / County</label>
+                                    <label className="block text-xs font-black text-slate-600 mb-2 uppercase tracking-wider">County</label>
                                     <input
                                         type="text"
-                                        value={formData.region}
-                                        onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+                                        value={formData.county}
+                                        onChange={(e) => setFormData({ ...formData, county: e.target.value })}
                                         className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition-all"
                                         placeholder="Co. Tipperary"
                                     />

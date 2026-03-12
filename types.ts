@@ -83,9 +83,8 @@ export interface Customer {
   address?: string;
   addressLine2?: string;
   city?: string;
-  region?: string;
+  county?: string;
   postalCode?: string;
-  country?: string;
   company?: string;
   notes?: string;
   tags?: string[];

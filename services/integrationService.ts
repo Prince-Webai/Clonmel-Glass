@@ -17,9 +17,9 @@ export const sendToXero = async (invoice: Invoice, customer: Customer | undefine
                     AddressLine1: customer?.address || invoice.customerAddress || '',
                     AddressLine2: customer?.addressLine2 || '',
                     City: customer?.city || '',
-                    Region: customer?.region || '',
+                    Region: customer?.county || '',
                     PostalCode: customer?.postalCode || '',
-                    Country: customer?.country || ''
+                    Country: ''
                 }
             ]
         },

@@ -148,6 +148,7 @@ export const storageService = {
     if (invoice.xeroSyncStatus !== undefined) updatePayload.xero_sync_status = String(invoice.xeroSyncStatus);
     if (invoice.xeroSyncDate !== undefined) updatePayload.xero_sync_date = invoice.xeroSyncDate ? String(invoice.xeroSyncDate) : null;
     if (invoice.isVatInclusive !== undefined) updatePayload.is_vat_inclusive = !!invoice.isVatInclusive;
+    if (invoice.createdBy !== undefined) updatePayload.created_by = String(invoice.createdBy);
 
     if (Object.keys(updatePayload).length === 0) return;
 
@@ -244,9 +245,10 @@ export const storageService = {
     return (data || []).map(cust => ({
       ...cust,
       createdAt: String(cust.created_at || ''),
-      updatedAt: String(cust.updated_at || ''),
-      createdBy: String(cust.created_by || ''),
-      postalCode: cust.postal_code
+      updatedAt: String(cust.updated_at || ""),
+      createdBy: String(cust.created_by || ""),
+      postalCode: cust.postal_code,
+      county: cust.country
     }));
   },
 
@@ -261,7 +263,7 @@ export const storageService = {
       address_line_2: customer.addressLine2 || null, // Map addressLine2
       city: customer.city || null,
       postal_code: customer.postalCode || null,
-      country: customer.country || 'Ireland',
+      country: customer.county || null,
       company: customer.company || null,
       notes: customer.notes || null,
       tags: customer.tags || [],
@@ -283,7 +285,7 @@ export const storageService = {
       address_line_2: customer.addressLine2 || null, // Map addressLine2
       city: customer.city || null,
       postal_code: customer.postalCode || null,
-      country: customer.country || 'Ireland',
+      country: customer.county || null,
       company: customer.company || null,
       notes: customer.notes || null,
       tags: customer.tags || [],

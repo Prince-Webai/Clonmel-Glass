@@ -632,7 +632,7 @@ export const sendInvoiceViaWebhook = async (
         // Extended CRM Data (if available)
         city: customer?.city,
         postalCode: customer?.postalCode,
-        country: customer?.country,
+        county: customer?.county,
         companyName: customer?.company,
         tags: customer?.tags,
         crmNotes: customer?.notes

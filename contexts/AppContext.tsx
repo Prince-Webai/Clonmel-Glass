@@ -444,9 +444,15 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
 
   const addInvoice = async (inv: Invoice) => {
     setIsSyncing(true);
+    // Optimistic add
+    setInvoices(prev => [inv, ...prev]);
     try {
       await storageService.addInvoice(inv);
-      setInvoices(prev => [inv, ...prev]);
+    } catch (error) {
+      console.error("Failed to add invoice:", error);
+      // Remove from UI if save failed
+      setInvoices(prev => prev.filter(i => i.id !== inv.id));
+      throw error;
     } finally {
       setIsSyncing(false);
     }
@@ -454,9 +460,18 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
 
   const updateInvoice = async (inv: Invoice) => {
     setIsSyncing(true);
+    // Store previous state for rollback
+    const previousInvoices = [...invoices];
+    // Optimistic update
+    setInvoices(prev => prev.map(i => i.id === inv.id ? inv : i));
+    
     try {
       await storageService.updateInvoice(inv);
-      setInvoices(prev => prev.map(i => i.id === inv.id ? inv : i));
+    } catch (error) {
+      console.error("Failed to update invoice:", error);
+      // Rollback UI
+      setInvoices(previousInvoices);
+      throw error;
     } finally {
       setIsSyncing(false);
     }

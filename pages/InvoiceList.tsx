@@ -203,12 +203,17 @@ const InvoiceList = () => {
   const [paymentAmount, setPaymentAmount] = useState<string>('');
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
-  const filteredInvoices = invoices.filter(inv =>
-    (inv.documentType === 'invoice' || !inv.documentType) &&
-    inv.invoiceNumber && !inv.invoiceNumber.startsWith('QT-') &&
-    (inv.customerName?.toLowerCase().includes(filter.toLowerCase()) ||
-      inv.invoiceNumber?.toLowerCase().includes(filter.toLowerCase()))
-  );
+  const filteredInvoices = invoices.filter(inv => {
+    // Determine if it's an invoice: has type 'invoice', or NO type and NOT a QT- prefix
+    const isActuallyQuote = (inv.documentType === 'quote') || (inv.invoiceNumber && inv.invoiceNumber.startsWith('QT-'));
+    if (isActuallyQuote) return false;
+
+    const search = filter.toLowerCase();
+    const matchesName = inv.customerName?.toLowerCase().includes(search);
+    const matchesNumber = inv.invoiceNumber?.toLowerCase().includes(search);
+
+    return matchesName || matchesNumber;
+  });
 
   const handlePayment = (inv: Invoice) => {
     const amount = parseFloat(paymentAmount);
@@ -457,9 +462,10 @@ const InvoiceList = () => {
                     </button>
                     <button 
                         onClick={async () => {
+                            const idToDelete = confirmingDeleteId;
+                            setConfirmingDeleteId(null);
                             try { 
-                                await deleteInvoice(confirmingDeleteId); 
-                                setConfirmingDeleteId(null); 
+                                await deleteInvoice(idToDelete); 
                             } catch (e) { 
                                 alert("Error deleting invoice. Please try again."); 
                             }

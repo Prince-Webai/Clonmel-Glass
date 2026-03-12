@@ -9,11 +9,16 @@ const Quotes = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
-    const filteredQuotes = invoices.filter(inv =>
-        (inv.documentType === 'quote' || inv.invoiceNumber.startsWith('QT-')) &&
-        (inv.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const filteredQuotes = invoices.filter(inv => {
+        const isQuote = (inv.documentType === 'quote') || (inv.invoiceNumber && inv.invoiceNumber.startsWith('QT-'));
+        if (!isQuote) return false;
+        
+        const search = searchTerm.toLowerCase();
+        const matchesName = inv.customerName?.toLowerCase().includes(search);
+        const matchesNumber = inv.invoiceNumber?.toLowerCase().includes(search);
+        
+        return matchesName || matchesNumber;
+    });
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-US', {
@@ -306,9 +311,10 @@ const Quotes = () => {
                             </button>
                             <button 
                                 onClick={async () => {
+                                    const idToDelete = confirmingDeleteId;
+                                    setConfirmingDeleteId(null);
                                     try { 
-                                        await deleteInvoice(confirmingDeleteId); 
-                                        setConfirmingDeleteId(null); 
+                                        await deleteInvoice(idToDelete); 
                                     } catch (e) { 
                                         alert("Error deleting quote. Please try again."); 
                                     }
