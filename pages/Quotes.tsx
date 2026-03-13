@@ -257,12 +257,18 @@ const Quotes = () => {
                             filteredQuotes.map(quote => (
                                 <tr key={quote.id} className="hover:bg-slate-50/50 transition-colors">
                                     <td className="py-4 px-5">
-                                        <div className="font-black text-slate-900 text-sm">{quote.invoiceNumber}</div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="font-black text-slate-900 text-sm">{quote.invoiceNumber}</div>
+                                            <div className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md border shadow-sm animate-in fade-in zoom-in duration-300
+                                              ${quote.company === 'mirrorzone' 
+                                                ? 'bg-slate-900 text-white border-slate-900 shadow-slate-900/10' 
+                                                : 'bg-red-50 text-red-600 border-red-100 shadow-red-500/5'}`}
+                                            >
+                                              {quote.company === 'mirrorzone' ? 'Mirrorzone' : 'Clonmel Glass'}
+                                            </div>
+                                        </div>
                                         <div className="text-[10px] font-bold text-slate-400 mt-0.5">
                                             {new Date(quote.dateIssued).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                                        </div>
-                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
-                                            {quote.company === 'mirrorzone' ? 'Mirrorzone' : 'Clonmel Glass'}
                                         </div>
                                         <div className="sm:hidden text-xs font-semibold text-slate-700 mt-1">{quote.customerName}</div>
                                     </td>

@@ -334,7 +334,16 @@ const InvoiceList = () => {
                   <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="py-4 px-5">
                       <div className="font-black text-slate-900 text-sm">{inv.customerName || 'Unknown'}</div>
-                      <div className="text-[10px] font-bold text-slate-400 mt-0.5">{inv.invoiceNumber}</div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <div className="text-[10px] font-bold text-slate-400">{inv.invoiceNumber}</div>
+                        <div className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md border shadow-sm animate-in fade-in zoom-in duration-300
+                          ${inv.company === 'mirrorzone' 
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-slate-900/10' 
+                            : 'bg-red-50 text-red-600 border-red-100 shadow-red-500/5'}`}
+                        >
+                          {inv.company === 'mirrorzone' ? 'Mirrorzone' : 'Clonmel Glass'}
+                        </div>
+                      </div>
                       <div className="text-[10px] text-slate-500 mt-0.5">{formatDate(inv.dateIssued)}</div>
                     </td>
                     <td className="py-4 px-5 text-right">
